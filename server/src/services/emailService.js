@@ -16,6 +16,9 @@ class EmailService {
           user: config.email.user,
           pass: config.email.password,
         },
+        tls: {
+          rejectUnauthorized: false,
+        },
       });
     }
     return this.transporter;
@@ -138,7 +141,6 @@ class EmailService {
         throw new Error(`SMTP failure: ${error.message}`);
       }
     } else {
-      // Development fallback mode: log clean preview
       console.log('\n================== [DAILY GRACE WELCOME EMAIL] ==================');
       console.log(`To: ${to} (${name})`);
       console.log(`Subject: ${subject}`);
@@ -147,8 +149,6 @@ class EmailService {
       return { success: true, mode: 'development', previewUrl: homeUrl };
     }
   }
-
-
 
   /**
    * Send the verification email to newly registered users.
@@ -261,13 +261,10 @@ class EmailService {
         });
         return { success: true, mode: 'smtp' };
       } catch (error) {
-        // Safe logging without credentials or sensitive payload
         console.error('[EmailService Error] Failed to send verification email via SMTP:', error.message);
         throw new Error("We couldn't send the confirmation email right now. Please try again.");
       }
     } else {
-
-      // Development fallback mode: print verification link in terminal
       console.log('\n================== [DAILY GRACE EMAIL SERVICE] ==================');
       console.log(`To: ${to} (${name})`);
       console.log(`Subject: ${subject}`);
@@ -276,7 +273,6 @@ class EmailService {
       return { success: true, mode: 'development', previewUrl: verificationUrl };
     }
   }
-
 
   /**
    * Send a daily reminder email containing the user's actual Daily Grace motivation.
@@ -415,7 +411,6 @@ class EmailService {
         throw new Error(`SMTP failure: ${error.message}`);
       }
     } else {
-      // Development mode: Clean log output
       console.log('\n================== [DAILY GRACE REMINDER SERVICE] ==================');
       console.log(`To: ${to} (${name})`);
       console.log(`Subject: ${subject}`);
@@ -428,6 +423,4 @@ class EmailService {
   }
 }
 
-
 export const emailService = new EmailService();
-
