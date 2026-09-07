@@ -1,0 +1,22 @@
+{
+  "name": "daily-grace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Daily Grace — One Scripture. One Reflection. One Day at a Time.",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "install:all": "npm install && npm --prefix server install && npm --prefix client install",
+    "admin:create": "npm --prefix server run admin:create",
+    "admin:promote": "npm --prefix server run admin:promote",
+    "import:motivations": "npm --prefix server run import:motivations",
+    "reminders:send": "npm --prefix server run reminders:send",
+    "reminders:test": "npm --prefix server run reminders:test",
+    "test": "npm --prefix server test",
+    "build": "npm --prefix client run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

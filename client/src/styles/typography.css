@@ -1,0 +1,74 @@
+/* Daily Grace Typography System */
+
+h1, h2, h3, h4, .font-serif {
+  font-family: var(--font-serif);
+  color: var(--color-primary);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+h1 {
+  font-size: 2.75rem;
+  line-height: 1.15;
+}
+
+h2 {
+  font-size: 2rem;
+  line-height: 1.25;
+}
+
+h3 {
+  font-size: 1.5rem;
+  line-height: 1.35;
+}
+
+.brand-title {
+  font-family: var(--font-serif);
+  font-size: 2.25rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.tagline {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.25rem;
+  color: var(--color-accent);
+  letter-spacing: 0.02em;
+}
+
+p, span, label, input, button, a {
+  font-family: var(--font-sans);
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+.text-sm {
+  font-size: 0.875rem;
+}
+
+.text-xs {
+  font-size: 0.75rem;
+}
+
+.text-center {
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  h1 {
+    font-size: 2.15rem;
+  }
+  .brand-title {
+    font-size: 1.75rem;
+    letter-spacing: 0.12em;
+  }
+  .tagline {
+    font-size: 1.05rem;
+  }
+}
