@@ -60,6 +60,8 @@ export function TodayPage() {
           data?.assignment?.completed
         );
         setIsCompleted(completed);
+        sessionStorage.setItem('daily_grace_today_completed', completed ? 'true' : 'false');
+        window.dispatchEvent(new CustomEvent('devotion_completed_status', { detail: { isCompleted: completed } }));
         setCurrentStreak(data.current_streak || 1);
         setStatus('success');
 
@@ -67,6 +69,8 @@ export function TodayPage() {
         const params = new URLSearchParams(window.location.search);
         if (params.get('completed') === 'true') {
           setIsCompleted(true);
+          sessionStorage.setItem('daily_grace_today_completed', 'true');
+          window.dispatchEvent(new CustomEvent('devotion_completed_status', { detail: { isCompleted: true } }));
           const streakParam = parseInt(params.get('streak'), 10);
           if (!isNaN(streakParam) && streakParam > 0) {
             setCurrentStreak(streakParam);
@@ -97,6 +101,8 @@ export function TodayPage() {
 
   const handleMarkCompleted = async () => {
     setIsCompleted(true);
+    sessionStorage.setItem('daily_grace_today_completed', 'true');
+    window.dispatchEvent(new CustomEvent('devotion_completed_status', { detail: { isCompleted: true } }));
     setMotivation((prev) => (prev ? { ...prev, is_completed: true, completed: true } : prev));
     try {
       const res = await motivationService.markCompleted();

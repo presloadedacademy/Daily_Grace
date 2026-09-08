@@ -31,7 +31,24 @@ self.addEventListener('push', (event) => {
     },
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  const showNotificationPromise = self.registration.showNotification(title, options);
+
+  // Send message to any active/open foreground client windows
+  const broadcastPromise = self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+    for (const client of windowClients) {
+      client.postMessage({
+        type: 'PUSH_NOTIFICATION',
+        payload: {
+          title,
+          body: options.body,
+          url: options.data.url,
+          timestamp: options.data.timestamp,
+        },
+      });
+    }
+  });
+
+  event.waitUntil(Promise.all([showNotificationPromise, broadcastPromise]));
 });
 
 // 2. Listen to notification click and navigate to /today

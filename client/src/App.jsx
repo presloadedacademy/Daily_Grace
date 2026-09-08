@@ -19,11 +19,13 @@ import AdminSettingsPage from './pages/admin/AdminSettingsPage.jsx';
 import AdminRoute from './components/AdminRoute.jsx';
 import OnboardingTour from './components/OnboardingTour.jsx';
 import { PushNotificationClient } from './services/pushNotificationService.js';
+import ForegroundNotificationToast from './components/ForegroundNotificationToast.jsx';
 
 function AppRouter() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user, isLoading } = useAuth();
+  const [foregroundToast, setForegroundToast] = useState(null);
 
   useEffect(() => {
     if (user) {
@@ -32,6 +34,28 @@ function AppRouter() {
       });
     }
   }, [user]);
+
+  // Listen for real-time push notification broadcasts from Service Worker while app is open
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      const handleMessage = (event) => {
+        if (event.data && event.data.type === 'PUSH_NOTIFICATION') {
+          const payload = event.data.payload || {};
+          setForegroundToast(payload);
+
+          // Auto-dismiss after 8 seconds if not interacted with
+          setTimeout(() => {
+            setForegroundToast((current) => (current === payload ? null : current));
+          }, 8000);
+        }
+      };
+
+      navigator.serviceWorker.addEventListener('message', handleMessage);
+      return () => {
+        navigator.serviceWorker.removeEventListener('message', handleMessage);
+      };
+    }
+  }, []);
 
   if (isLoading) {
     return (
@@ -103,6 +127,10 @@ function AppRouter() {
 
   return (
     <>
+      <ForegroundNotificationToast 
+        notification={foregroundToast} 
+        onDismiss={() => setForegroundToast(null)} 
+      />
       {content}
       {shouldShowOnboarding && <OnboardingTour />}
     </>
