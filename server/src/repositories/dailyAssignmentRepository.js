@@ -43,7 +43,7 @@ export class DailyAssignmentRepository {
         day_number: motivation.day_number || null,
         assigned_date: assignment.assigned_date,
         cycle_number: assignment.cycle_number,
-        is_completed: assignment.is_completed || false,
+        is_completed: Boolean(assignment.is_completed),
         completed_at: assignment.completed_at || null,
       };
     }
@@ -66,10 +66,16 @@ export class DailyAssignmentRepository {
         dm.completed_at
       FROM daily_motivations dm
       INNER JOIN motivations m ON dm.motivation_id = m.id
-      WHERE dm.user_id = $1 AND dm.assigned_date = $2;
+      WHERE dm.user_id = $1 AND dm.assigned_date = $2::DATE;
     `;
     const res = await query(text, [userId, assignedDate]);
-    return res.rows[0] || null;
+    if (!res.rows[0]) return null;
+
+    const row = res.rows[0];
+    return {
+      ...row,
+      is_completed: Boolean(row.is_completed),
+    };
   }
 
   /**
@@ -80,7 +86,16 @@ export class DailyAssignmentRepository {
 
     if (!isDatabaseAvailable()) {
       const key = `${userId}:${assignedDate}`;
-      const assignment = devDailyAssignmentsStore.get(key);
+      let assignment = devDailyAssignmentsStore.get(key);
+      if (!assignment) {
+        // Fallback: check latest for user in memory
+        for (const asg of devDailyAssignmentsStore.values()) {
+          if (asg.user_id === userId) {
+            assignment = asg;
+            break;
+          }
+        }
+      }
       if (assignment) {
         assignment.is_completed = true;
         assignment.completed_at = new Date();
@@ -95,10 +110,27 @@ export class DailyAssignmentRepository {
     const text = `
       UPDATE daily_motivations
       SET is_completed = TRUE, completed_at = CURRENT_TIMESTAMP
-      WHERE user_id = $1 AND assigned_date = $2
+      WHERE user_id = $1 AND assigned_date = $2::DATE
       RETURNING id, user_id, motivation_id, assigned_date, cycle_number, is_completed, completed_at;
     `;
-    const res = await query(text, [userId, assignedDate]);
+    let res = await query(text, [userId, assignedDate]);
+
+    if (res.rowCount === 0) {
+      // Fallback: update most recent assignment for user to ensure completion persists
+      const fallbackText = `
+        UPDATE daily_motivations
+        SET is_completed = TRUE, completed_at = CURRENT_TIMESTAMP
+        WHERE id = (
+          SELECT id FROM daily_motivations
+          WHERE user_id = $1
+          ORDER BY assigned_date DESC, created_at DESC
+          LIMIT 1
+        )
+        RETURNING id, user_id, motivation_id, assigned_date, cycle_number, is_completed, completed_at;
+      `;
+      res = await query(fallbackText, [userId]);
+    }
+
     return res.rows[0] || null;
   }
 

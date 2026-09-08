@@ -52,7 +52,8 @@ export function TodayPage() {
       const data = await motivationService.getTodaysMotivation();
       if (data) {
         setMotivation(data);
-        setIsCompleted(Boolean(data.is_completed));
+        const isDone = Boolean(data.is_completed || data.completed);
+        setIsCompleted(isDone);
         setCurrentStreak(data.current_streak || 1);
         setStatus('success');
 
@@ -88,17 +89,16 @@ export function TodayPage() {
   }, []);
 
   const handleMarkCompleted = async () => {
+    setIsCompleted(true);
+    setMotivation((prev) => (prev ? { ...prev, is_completed: true, completed: true } : prev));
     try {
       const res = await motivationService.markCompleted();
-      setIsCompleted(true);
       if (res?.current_streak) {
         setCurrentStreak(res.current_streak);
       }
       setCompletionToast('Devotion completed! +1 Streak 🔥');
     } catch (err) {
       console.error('Failed to mark devotion completed:', err);
-      // Fallback optimistically
-      setIsCompleted(true);
     }
   };
 
