@@ -22,8 +22,9 @@ describe('DAILY GRACE — Complete Daily Email Reminder & Duplicate Protection S
       return { success: true, mode: 'mock' };
     };
 
-    // Mock verification email to prevent real SMTP connections in unit tests
+    // Mock verification and welcome email to prevent real SMTP connections in unit tests
     emailService.sendVerificationEmail = async () => ({ success: true });
+    emailService.sendWelcomeEmail = async () => ({ success: true });
   });
 
   /**

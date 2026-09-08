@@ -5,6 +5,7 @@ import motivationRoutes from './routes/motivationRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import reminderRoutes from './routes/reminderRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { config } from './config/env.js';
 
@@ -46,6 +47,7 @@ app.use('/api/daily', motivationRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/reminders', reminderRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 
 

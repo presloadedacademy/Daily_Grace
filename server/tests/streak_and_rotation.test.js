@@ -183,5 +183,25 @@ describe('DAILY GRACE — Dual Streak Tracking & Daily Rotation Suite', () => {
     assert.equal(refetched.completed, true, 'completed alias must also be true');
     assert.ok(refetched.completed_at, 'completed_at timestamp must be set');
   });
+
+  it('Automatic Welcome Email: sendWelcomeEmail accepts user object and formats required content', async () => {
+    const user = {
+      id: generateUuid(),
+      name: 'Grace Seeker',
+      email: 'graceseeker@example.com',
+    };
+
+    const emailServiceInstance = new EmailService();
+    const originalGetTransporter = emailServiceInstance.getTransporter;
+    emailServiceInstance.getTransporter = () => null;
+
+    try {
+      const result = await emailServiceInstance.sendWelcomeEmail(user);
+      assert.equal(result.success, true);
+      assert.ok(result.previewUrl.includes('/today'));
+    } finally {
+      emailServiceInstance.getTransporter = originalGetTransporter;
+    }
+  });
 });
 

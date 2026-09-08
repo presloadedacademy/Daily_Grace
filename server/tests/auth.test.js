@@ -124,7 +124,9 @@ describe('DAILY GRACE — Real Email Verification & Authentication Tests', () =>
     return { success: true };
   };
 
-  emailService.sendWelcomeEmail = async ({ to, name }) => {
+  emailService.sendWelcomeEmail = async (userOrParams) => {
+    const to = userOrParams?.email || userOrParams?.to;
+    const name = userOrParams?.name;
     sentWelcomeEmails.push({ to, name });
     return { success: true };
   };

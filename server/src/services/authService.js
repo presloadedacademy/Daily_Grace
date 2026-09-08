@@ -74,11 +74,8 @@ export class AuthService {
     });
 
     // Non-blocking asynchronous email dispatch so registration API responds in under 200ms
-    emailService.sendWelcomeEmail({
-      to: newUser.email,
-      name: newUser.name,
-    }).catch((e) => {
-      console.warn('[AuthService] Async welcome email notice:', e.message);
+    emailService.sendWelcomeEmail(newUser).catch((err) => {
+      console.error('Failed to send welcome email:', err);
     });
 
     // Generate JWT token for immediate authenticated session

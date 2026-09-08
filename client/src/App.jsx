@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import { NavigationProvider, useLocation, useNavigate } from './context/NavigationContext.jsx';
 import SplashScreen from './components/SplashScreen.jsx';
@@ -18,11 +18,20 @@ import AdminProfilePage from './pages/admin/AdminProfilePage.jsx';
 import AdminSettingsPage from './pages/admin/AdminSettingsPage.jsx';
 import AdminRoute from './components/AdminRoute.jsx';
 import OnboardingTour from './components/OnboardingTour.jsx';
+import { PushNotificationClient } from './services/pushNotificationService.js';
 
 function AppRouter() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      PushNotificationClient.registerAndSubscribe().catch((err) => {
+        console.warn('[Push] Auto-subscribe notification notice:', err);
+      });
+    }
+  }, [user]);
 
   if (isLoading) {
     return (

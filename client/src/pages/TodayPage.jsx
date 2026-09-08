@@ -9,6 +9,7 @@ import BottomNavigation from '../components/BottomNavigation.jsx';
 import DevotionalReaderModal from '../components/DevotionalReaderModal.jsx';
 import ScrollToTop from '../components/ScrollToTop.jsx';
 import { LoadingSpinner } from '../components/LoadingSpinner.jsx';
+import { PushNotificationClient } from '../services/pushNotificationService.js';
 
 // Pick an aesthetic background image based on motivation ID or title
 function getMotivationBg(motivation) {
@@ -91,6 +92,7 @@ export function TodayPage() {
 
   useEffect(() => {
     fetchTodayGrace();
+    PushNotificationClient.clearActiveDevotionNotifications();
   }, []);
 
   const handleMarkCompleted = async () => {

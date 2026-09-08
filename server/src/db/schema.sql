@@ -91,3 +91,17 @@ CREATE TABLE IF NOT EXISTS daily_reminder_logs (
 
 CREATE INDEX IF NOT EXISTS idx_daily_reminder_logs_date ON daily_reminder_logs(reminder_date);
 CREATE INDEX IF NOT EXISTS idx_daily_reminder_logs_user ON daily_reminder_logs(user_id);
+
+-- 5. Web Push Subscriptions Table
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    endpoint TEXT UNIQUE NOT NULL,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_endpoint ON push_subscriptions(endpoint);
+

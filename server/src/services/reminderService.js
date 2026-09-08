@@ -1,6 +1,7 @@
 import { ReminderRepository } from '../repositories/reminderRepository.js';
 import { MotivationService, getLagosDateString } from './motivationService.js';
 import { emailService } from './emailService.js';
+import { pushNotificationService } from './pushNotificationService.js';
 
 export class ReminderService {
   /**
@@ -52,6 +53,16 @@ export class ReminderService {
           userId: user.id,
           date: reminderDate,
           motivation,
+        });
+
+        // Send Web Push notification if user has registered device push subscriptions
+        pushNotificationService.sendPushToUser(user.id, {
+          title: 'Daily Grace 🌿',
+          body: `Your daily devotional is ready: ${motivation?.title || 'Daily Grace'}`,
+          url: '/today',
+          tag: 'daily-devotion',
+        }).catch((pushErr) => {
+          console.warn(`[ReminderService] Push notification dispatch note for user ${user.id}:`, pushErr.message);
         });
 
         await ReminderRepository.recordReminderLog(user.id, reminderDate, 'sent');

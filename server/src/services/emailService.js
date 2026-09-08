@@ -31,16 +31,17 @@ class EmailService {
 
   /**
    * Send the warm Welcome email to newly registered users.
-   * @param {Object} params
-   * @param {string} params.to Recipient email address
-   * @param {string} params.name Recipient name
+   * @param {Object} userOrParams User object or { to, name } / { email, name }
    */
-  async sendWelcomeEmail({ to, name }) {
-    const homeUrl = `${config.clientUrl}/home`;
-    const settingsUrl = `${config.clientUrl}/settings`;
+  async sendWelcomeEmail(userOrParams) {
+    const to = userOrParams?.email || userOrParams?.to;
+    const name = userOrParams?.name || 'Friend';
+    const clientBase = (process.env.APP_URL || process.env.CLIENT_URL || config.clientUrl || 'https://daily-grace-nu.vercel.app').replace(/\/$/, '');
+    const todayUrl = `${clientBase}/today`;
+    const settingsUrl = `${clientBase}/settings`;
     const subject = 'Welcome to Daily Grace 🌿';
 
-    const textContent = `Hello ${name},\n\nWelcome to Daily Grace.\n\nWe are delighted to walk alongside you in your spiritual journey. Daily Grace is your quiet sanctuary to start each day rooted in God's Word: One Scripture. One Reflection. One Prayer.\n\nYour morning devotional emails are automatically active. Your daily motivation will arrive in your inbox every morning at 08:00 AM (Africa/Lagos time).\n\nStart Your Daily Grace Journey: ${homeUrl}\n\nMay God's grace and steadfast love guide you today and always.\n\nDAILY GRACE\n\n---\nManage notification preferences: ${settingsUrl}`;
+    const textContent = `Welcome to Daily Grace, ${name}!\n\nYour daily moment with God begins today. Every morning at 5:00 AM (WAT), we will deliver your devotional reflection directly to your inbox and app.\n\nWhat to expect every morning:\n• One Scripture: An anchor verse for your day\n• One Reflection: Encouragement for your daily walk\n• One Prayer: A heartfelt conversation with God\n\nBuild a daily spiritual habit with God's Word. Complete each day's reflection to keep your devotional streak alive and nurture your faith one morning at a time.\n\nOpen Today's Devotional:\n${todayUrl}\n\nMay God's peace, grace, and steadfast love guide you today and always.\n\nDAILY GRACE\n\n---\nManage notification preferences: ${settingsUrl}`;
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -67,16 +68,16 @@ class EmailService {
                 <!-- Content Body -->
                 <tr>
                   <td style="padding: 36px 32px;">
-                    <p style="font-size: 18px; color: #354F42; font-weight: 600; margin: 0 0 16px 0;">
-                      Welcome to Daily Grace, ${name}.
+                    <p style="font-size: 19px; color: #354F42; font-weight: 600; margin: 0 0 16px 0;">
+                      Welcome to Daily Grace, ${name}!
                     </p>
-                    <p style="font-size: 15px; line-height: 1.7; color: #333333; margin: 0 0 16px 0;">
-                      We are delighted to welcome you. Daily Grace was created to be a quiet sanctuary for your soul—a peaceful place to pause, reflect, and center your heart upon God's truth.
+                    <p style="font-size: 15px; line-height: 1.7; color: #333333; margin: 0 0 18px 0;">
+                      Your daily moment with God begins today. Every morning at <strong>5:00 AM (WAT)</strong>, we will deliver your devotional reflection directly to your inbox and app.
                     </p>
 
                     <!-- Feature Box -->
                     <div style="background-color: #FBFBFA; border-left: 3px solid #B8A46A; border-radius: 0 6px 6px 0; padding: 18px 20px; margin: 20px 0 24px 0;">
-                      <p style="font-size: 14px; font-weight: 600; color: #354F42; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 1px;">
+                      <p style="font-size: 13px; font-weight: 600; color: #354F42; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px;">
                         What to expect every morning:
                       </p>
                       <ul style="margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.8; color: #4A4A4A;">
@@ -86,22 +87,22 @@ class EmailService {
                       </ul>
                     </div>
 
-                    <!-- Automatic Reminders Notice -->
+                    <!-- Streak & Spiritual Growth Box -->
                     <div style="background-color: #F6F7F2; border-radius: 6px; padding: 16px 20px; margin: 0 0 28px 0;">
                       <p style="font-size: 14px; line-height: 1.6; color: #2C3E35; margin: 0;">
-                        🌿 <strong>Your Morning Reminders are Active:</strong> Your daily devotion will arrive in your inbox every morning at <strong>08:00 AM (Africa/Lagos time)</strong>. You can adjust this anytime in your Settings.
+                        🔥 <strong>Daily Streaks & Spiritual Growth:</strong> Build a steady spiritual rhythm with God's Word. Complete each day's reflection in your app or email to keep your devotional streak alive and nurture your faith one morning at a time.
                       </p>
                     </div>
 
                     <!-- CTA Button -->
-                    <div style="text-align: center; margin: 28px 0 20px 0;">
-                      <a href="${homeUrl}" target="_blank" style="background-color: #354F42; color: #FFFFFF; text-decoration: none; padding: 14px 36px; border-radius: 4px; font-size: 15px; font-weight: 600; display: inline-block; letter-spacing: 0.5px;">
-                        Start Your Daily Grace Journey
+                    <div style="text-align: center; margin: 30px 0 22px 0;">
+                      <a href="${todayUrl}" target="_blank" style="background-color: #354F42; color: #FFFFFF; text-decoration: none; padding: 15px 38px; border-radius: 4px; font-size: 15px; font-weight: 600; display: inline-block; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(53, 79, 66, 0.2);">
+                        Open Today's Devotional
                       </a>
                     </div>
 
                     <p style="font-size: 13px; line-height: 1.6; color: #666666; text-align: center; margin: 24px 0 0 0;">
-                      May God's peace and steadfast love fill your heart today.
+                      May God's peace, grace, and steadfast love guide you today and always.
                     </p>
                   </td>
                 </tr>
@@ -145,9 +146,9 @@ class EmailService {
       console.log('\n================== [DAILY GRACE WELCOME EMAIL] ==================');
       console.log(`To: ${to} (${name})`);
       console.log(`Subject: ${subject}`);
-      console.log(`App URL: \x1b[36m${homeUrl}\x1b[0m`);
+      console.log(`Today's Devotional URL: \x1b[36m${todayUrl}\x1b[0m`);
       console.log('=================================================================\n');
-      return { success: true, mode: 'development', previewUrl: homeUrl };
+      return { success: true, mode: 'development', previewUrl: todayUrl };
     }
   }
 

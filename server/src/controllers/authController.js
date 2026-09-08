@@ -1,4 +1,5 @@
 import { AuthService } from '../services/authService.js';
+import { emailService } from '../services/emailService.js';
 
 export class AuthController {
   /**
