@@ -19,6 +19,11 @@ export default function BottomNavigation() {
       const done = Boolean(e.detail?.isCompleted);
       setIsCompleted(done);
       sessionStorage.setItem('daily_grace_today_completed', done ? 'true' : 'false');
+      if (done) {
+        if ('clearAppBadge' in navigator) navigator.clearAppBadge().catch(() => {});
+      } else {
+        if ('setAppBadge' in navigator) navigator.setAppBadge(1).catch(() => {});
+      }
     };
 
     window.addEventListener('devotion_completed_status', handleCompletionEvent);
@@ -30,6 +35,11 @@ export default function BottomNavigation() {
           const done = Boolean(data?.is_completed || data?.completed || data?.assignment?.is_completed);
           setIsCompleted(done);
           sessionStorage.setItem('daily_grace_today_completed', done ? 'true' : 'false');
+          if (done) {
+            if ('clearAppBadge' in navigator) navigator.clearAppBadge().catch(() => {});
+          } else {
+            if ('setAppBadge' in navigator) navigator.setAppBadge(1).catch(() => {});
+          }
         })
         .catch(() => {});
     }

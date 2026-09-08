@@ -14,16 +14,22 @@ self.addEventListener('push', (event) => {
   try {
     data = event.data ? event.data.json() : {};
   } catch (e) {
-    data = { body: event.data ? event.data.text() : "Today's devotional is ready for you." };
+    data = { body: event.data ? event.data.text() : "Your daily devotional is ready." };
+  }
+
+  // Set App Icon badge count on home screen / app dock
+  if ('setAppBadge' in self.navigator) {
+    self.navigator.setAppBadge(1).catch(() => {});
   }
 
   const title = data.title || 'Daily Grace 🌿';
   const options = {
-    body: data.body || "Today's devotional is ready for you.",
-    icon: '/favicon.ico',
-    badge: '/favicon.ico',
+    body: data.body || "Your daily devotional is ready.",
+    icon: '/icon-192x192.png',
+    badge: '/badge-72x72.png',
     tag: 'daily-devotion',
     renotify: true,
+    requireInteraction: false,
     vibrate: [200, 100, 200],
     data: {
       url: data.url || '/today',
@@ -55,6 +61,11 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
+  // Clear App Icon badge count
+  if ('clearAppBadge' in self.navigator) {
+    self.navigator.clearAppBadge().catch(() => {});
+  }
+
   const targetUrl = event.notification.data?.url || '/today';
 
   event.waitUntil(
@@ -72,3 +83,11 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
+
+// 3. Listen to notification close event to clear badge if dismissed
+self.addEventListener('notificationclose', () => {
+  if ('clearAppBadge' in self.navigator) {
+    self.navigator.clearAppBadge().catch(() => {});
+  }
+});
+

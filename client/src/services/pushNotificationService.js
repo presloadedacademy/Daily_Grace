@@ -83,9 +83,30 @@ export class PushNotificationClient {
   }
 
   /**
+   * Set App Icon Badge count on mobile/desktop home screen.
+   */
+  static setAppBadge(count = 1) {
+    if ('setAppBadge' in navigator) {
+      navigator.setAppBadge(count).catch(() => {});
+    }
+  }
+
+  /**
+   * Clear App Icon Badge on mobile/desktop home screen.
+   */
+  static clearAppBadge() {
+    if ('clearAppBadge' in navigator) {
+      navigator.clearAppBadge().catch(() => {});
+    }
+  }
+
+  /**
    * Clear active Daily Grace notifications when user views today's devotional.
    */
   static clearActiveDevotionNotifications() {
+    // Clear badge count
+    PushNotificationClient.clearAppBadge();
+
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.ready
         .then((reg) => {
@@ -106,3 +127,4 @@ export class PushNotificationClient {
     }
   }
 }
+

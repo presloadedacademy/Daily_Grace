@@ -62,6 +62,17 @@ export function TodayPage() {
         setIsCompleted(completed);
         sessionStorage.setItem('daily_grace_today_completed', completed ? 'true' : 'false');
         window.dispatchEvent(new CustomEvent('devotion_completed_status', { detail: { isCompleted: completed } }));
+
+        if (completed) {
+          if ('clearAppBadge' in navigator) {
+            navigator.clearAppBadge().catch(() => {});
+          }
+        } else {
+          if ('setAppBadge' in navigator) {
+            navigator.setAppBadge(1).catch(() => {});
+          }
+        }
+
         setCurrentStreak(data.current_streak || 1);
         setStatus('success');
 
@@ -71,6 +82,9 @@ export function TodayPage() {
           setIsCompleted(true);
           sessionStorage.setItem('daily_grace_today_completed', 'true');
           window.dispatchEvent(new CustomEvent('devotion_completed_status', { detail: { isCompleted: true } }));
+          if ('clearAppBadge' in navigator) {
+            navigator.clearAppBadge().catch(() => {});
+          }
           const streakParam = parseInt(params.get('streak'), 10);
           if (!isNaN(streakParam) && streakParam > 0) {
             setCurrentStreak(streakParam);
@@ -103,6 +117,9 @@ export function TodayPage() {
     setIsCompleted(true);
     sessionStorage.setItem('daily_grace_today_completed', 'true');
     window.dispatchEvent(new CustomEvent('devotion_completed_status', { detail: { isCompleted: true } }));
+    if ('clearAppBadge' in navigator) {
+      navigator.clearAppBadge().catch(() => {});
+    }
     setMotivation((prev) => (prev ? { ...prev, is_completed: true, completed: true } : prev));
     try {
       const res = await motivationService.markCompleted();
