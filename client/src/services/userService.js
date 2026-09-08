@@ -63,6 +63,16 @@ class UserService {
     });
     return response;
   }
+
+  /**
+   * Delete authenticated user's account and associated data permanently.
+   */
+  async deleteAccount() {
+    const response = await api.request('/api/users/me', {
+      method: 'DELETE',
+    });
+    return response;
+  }
 }
 
 export const userService = new UserService();

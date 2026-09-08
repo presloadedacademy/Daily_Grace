@@ -384,7 +384,7 @@ describe('DAILY GRACE — Real Email Verification & Authentication Tests', () =>
     assert.ok(loginRes.token, 'Should return JWT token');
     assert.ok(isValidUuid(loginRes.user.id), 'Returned user ID must be a valid UUID');
     assert.equal(loginRes.user.id, registered.id);
-    assert.equal(loginRes.user.email_verified, true);
+    assert.equal(loginRes.user.email_verified, false);
     assert.equal(loginRes.user.name, 'John Newton');
 
     // Verify the decoded JWT payload
@@ -523,6 +523,7 @@ describe('DAILY GRACE — Real Email Verification & Authentication Tests', () =>
       password: 'MotherOfMethodism1!',
     });
 
+    // Wrong password test
     await assert.rejects(
       async () => {
         await AuthService.login({
@@ -532,7 +533,22 @@ describe('DAILY GRACE — Real Email Verification & Authentication Tests', () =>
       },
       (err) => {
         assert.equal(err.statusCode, 401);
-        assert.equal(err.code, 'INVALID_CREDENTIALS');
+        assert.equal(err.code, 'INVALID_PASSWORD');
+        return true;
+      }
+    );
+
+    // Non-existent email test
+    await assert.rejects(
+      async () => {
+        await AuthService.login({
+          email: 'nonexistent@dailygrace.app',
+          password: 'SomePassword123!',
+        });
+      },
+      (err) => {
+        assert.equal(err.statusCode, 404);
+        assert.equal(err.code, 'USER_NOT_FOUND');
         return true;
       }
     );

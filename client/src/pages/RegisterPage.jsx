@@ -7,6 +7,7 @@ import { api } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export function RegisterPage({ onNavigate }) {
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -17,12 +18,6 @@ export function RegisterPage({ onNavigate }) {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState('');
-
-  // Registration success / verification pending state
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [registeredEmail, setRegisteredEmail] = useState('');
-  const [isResending, setIsResending] = useState(false);
-  const [resendStatus, setResendStatus] = useState(null); // { type: 'success'|'error', message: string }
 
   const validateForm = () => {
     const errs = {};
@@ -77,97 +72,28 @@ export function RegisterPage({ onNavigate }) {
         confirmPassword: formData.confirmPassword,
       });
 
-      // Show check your email page (Do NOT auto login)
-      setRegisteredEmail(response.email || formData.email.trim().toLowerCase());
-      setIsSuccess(true);
+      // Auto-login immediately into the app with JWT token
+      if (response.token) {
+        const userData = response.user || {
+          id: response.id,
+          name: response.name || formData.name.trim(),
+          email: response.email || formData.email.trim().toLowerCase(),
+          role: 'user',
+          email_verified: false,
+          notification_enabled: true,
+          onboarding_completed: false,
+        };
+        login(response.token, userData);
+        onNavigate('/home');
+      } else {
+        onNavigate('/login');
+      }
     } catch (err) {
       setServerError(err.message || 'Registration failed. Please check your information and try again.');
     } finally {
       setIsLoading(false);
     }
   };
-
-  const handleResend = async () => {
-    if (!registeredEmail) return;
-    setIsResending(true);
-    setResendStatus(null);
-
-    try {
-      const res = await api.resendVerification(registeredEmail);
-      setResendStatus({
-        type: 'success',
-        message: res.message || 'A new verification link has been sent to your email address.',
-      });
-    } catch (err) {
-      setResendStatus({
-        type: 'error',
-        message: err.message || 'Failed to resend confirmation email. Please try again.',
-      });
-    } finally {
-      setIsResending(false);
-    }
-  };
-
-  if (isSuccess) {
-    return (
-      <div className="page-wrapper">
-        <Card style={{ maxWidth: '480px', textAlign: 'center' }}>
-          <div
-            style={{
-              width: '64px',
-              height: '64px',
-              borderRadius: '50%',
-              backgroundColor: 'rgba(53, 79, 66, 0.08)',
-              color: 'var(--color-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 1.5rem auto',
-              fontSize: '1.75rem',
-            }}
-          >
-            ✉
-          </div>
-
-          <h2 style={{ marginBottom: '0.5rem', color: 'var(--color-primary)' }}>Check Your Email</h2>
-          <p style={{ fontSize: '1.05rem', color: 'var(--color-text-secondary)', lineHeight: 1.6, marginBottom: '0.75rem' }}>
-            We've sent a confirmation link to <strong>{registeredEmail}</strong>.
-          </p>
-          <p style={{ fontSize: '0.95rem', color: 'var(--color-text-muted)', lineHeight: 1.6, marginBottom: '1.75rem' }}>
-            Please check your inbox and click "Confirm My Email" to activate your account.
-          </p>
-
-          {resendStatus && (
-            <div style={{ marginBottom: '1.25rem' }}>
-              <Alert type={resendStatus.type} message={resendStatus.message} />
-            </div>
-          )}
-
-          <div style={{ backgroundColor: 'var(--surface-alt)', padding: '1.25rem', borderRadius: 'var(--radius-sm)', marginBottom: '1.5rem' }}>
-            <p style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', margin: '0 0 0.75rem 0' }}>
-              Didn't receive the email?
-            </p>
-            <Button
-              variant="outline"
-              onClick={handleResend}
-              isLoading={isResending}
-              style={{ fontSize: '0.9rem', padding: '0.6rem 1.2rem' }}
-            >
-              Resend Verification Email
-            </Button>
-          </div>
-
-          <Button
-            variant="ghost"
-            onClick={() => onNavigate('/login')}
-            style={{ width: '100%' }}
-          >
-            Back to Login
-          </Button>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="page-wrapper">

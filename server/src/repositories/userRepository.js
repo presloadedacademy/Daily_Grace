@@ -39,6 +39,9 @@ export class UserRepository {
         email_verified: isVerified,
         notification_enabled: true,
         onboarding_completed: false,
+        current_streak: 0,
+        longest_streak: 0,
+        last_completed_date: null,
         verification_token_hash: verificationTokenHash,
         verification_token_expires_at: verificationTokenExpiresAt,
         created_at: new Date(),
@@ -60,11 +63,13 @@ export class UserRepository {
     email_verified,
     notification_enabled,
     onboarding_completed,
+    current_streak,
+    longest_streak,
     verification_token_hash,
     verification_token_expires_at
   )
-  VALUES ($1, $2, LOWER($3), $4, $5, $6, TRUE, FALSE, $7, $8)
-  RETURNING id, name, email, role, email_verified, notification_enabled, onboarding_completed, created_at, updated_at;
+  VALUES ($1, $2, LOWER($3), $4, $5, $6, TRUE, FALSE, 0, 0, $7, $8)
+  RETURNING id, name, email, role, email_verified, notification_enabled, onboarding_completed, current_streak, longest_streak, last_completed_date, created_at, updated_at;
 `;
 
     const values = [
@@ -108,6 +113,9 @@ export class UserRepository {
         email_verified,
         notification_enabled,
         onboarding_completed,
+        current_streak,
+        longest_streak,
+        last_completed_date,
         verification_token_hash,
         verification_token_expires_at,
         created_at,
@@ -139,12 +147,47 @@ export class UserRepository {
         email_verified,
         notification_enabled,
         onboarding_completed,
+        current_streak,
+        longest_streak,
+        last_completed_date,
         created_at,
         updated_at
       FROM users
       WHERE id = $1;
     `;
     const res = await query(text, [id]);
+    return res.rows[0] || null;
+  }
+
+  /**
+   * Update user streak metrics and last completed date.
+   */
+  static async updateStreak(userId, { currentStreak, longestStreak, lastCompletedDate }) {
+    if (!userId || !isValidUuid(userId)) return null;
+
+    if (!isDatabaseAvailable()) {
+      const u = devMemoryStore.get(userId);
+      if (u) {
+        u.current_streak = currentStreak;
+        u.longest_streak = longestStreak;
+        u.last_completed_date = lastCompletedDate;
+        u.updated_at = new Date();
+        return { ...u };
+      }
+      return null;
+    }
+
+    const text = `
+      UPDATE users
+      SET
+        current_streak = $1,
+        longest_streak = $2,
+        last_completed_date = $3,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $4
+      RETURNING id, current_streak, longest_streak, last_completed_date;
+    `;
+    const res = await query(text, [currentStreak, longestStreak, lastCompletedDate, userId]);
     return res.rows[0] || null;
   }
 
@@ -525,6 +568,21 @@ export class UserRepository {
     `;
     const res = await query(text, [id]);
     return res.rows[0] || null;
+  }
+
+  /**
+   * Delete a user record permanently by ID.
+   */
+  static async deleteUser(userId) {
+    if (!userId || !isValidUuid(userId)) return false;
+
+    if (!isDatabaseAvailable()) {
+      return devMemoryStore.delete(userId);
+    }
+
+    const text = `DELETE FROM users WHERE id = $1 RETURNING id;`;
+    const res = await query(text, [userId]);
+    return res.rowCount > 0;
   }
 }
 

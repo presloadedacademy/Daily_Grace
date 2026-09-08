@@ -27,6 +27,13 @@ export class MotivationRepository {
   }
 
   /**
+   * Mark a daily motivation assignment as completed for a user on a given date.
+   */
+  static async markAssignmentCompleted(userId, assignedDate) {
+    return DailyAssignmentRepository.markAssignmentCompleted(userId, assignedDate);
+  }
+
+  /**
    * Get the current cycle number for a user.
    */
   static async getUserCurrentCycle(userId) {
@@ -57,7 +64,7 @@ export class MotivationRepository {
     if (!isValidUuid(id)) return null;
 
     const text = `
-      SELECT id, title, verse, reference, reflection, prayer, status, created_at, updated_at
+      SELECT id, title, verse, reference, reflection, prayer, status, day_number, created_at, updated_at
       FROM motivations
       WHERE id = $1;
     `;
@@ -69,7 +76,7 @@ export class MotivationRepository {
   /**
    * Create a single motivation.
    */
-  static async createMotivation({ title, verse, reference, reflection, prayer, status = 'draft' }) {
+  static async createMotivation({ title, verse, reference, reflection, prayer, status = 'draft', day_number = null }) {
     const cleanStatus = status === 'published' ? 'published' : 'draft';
 
     if (!isDatabaseAvailable()) {
@@ -82,6 +89,7 @@ export class MotivationRepository {
         reflection: reflection.trim(),
         prayer: prayer.trim(),
         status: cleanStatus,
+        day_number: day_number ? parseInt(day_number, 10) : null,
         created_at: new Date(),
         updated_at: new Date(),
       };
@@ -90,9 +98,9 @@ export class MotivationRepository {
     }
 
     const text = `
-      INSERT INTO motivations (title, verse, reference, reflection, prayer, status)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, title, verse, reference, reflection, prayer, status, created_at, updated_at;
+      INSERT INTO motivations (title, verse, reference, reflection, prayer, status, day_number)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id, title, verse, reference, reflection, prayer, status, day_number, created_at, updated_at;
     `;
     const res = await query(text, [
       title.trim(),
@@ -101,6 +109,7 @@ export class MotivationRepository {
       reflection.trim(),
       prayer.trim(),
       cleanStatus,
+      day_number ? parseInt(day_number, 10) : null,
     ]);
     return res.rows[0];
   }
@@ -108,7 +117,7 @@ export class MotivationRepository {
   /**
    * Update an existing motivation.
    */
-  static async updateMotivation(id, { title, verse, reference, reflection, prayer, status }) {
+  static async updateMotivation(id, { title, verse, reference, reflection, prayer, status, day_number }) {
     if (!isDatabaseAvailable()) {
       const m = devMotivationsStore.get(id);
       if (!m) return null;
@@ -119,6 +128,7 @@ export class MotivationRepository {
       if (reflection !== undefined) m.reflection = reflection.trim();
       if (prayer !== undefined) m.prayer = prayer.trim();
       if (status !== undefined) m.status = status === 'published' ? 'published' : 'draft';
+      if (day_number !== undefined) m.day_number = day_number ? parseInt(day_number, 10) : null;
       m.updated_at = new Date();
 
       return { ...m };
@@ -152,6 +162,10 @@ export class MotivationRepository {
       fields.push(`status = $${idx++}`);
       values.push(status === 'published' ? 'published' : 'draft');
     }
+    if (day_number !== undefined) {
+      fields.push(`day_number = $${idx++}`);
+      values.push(day_number ? parseInt(day_number, 10) : null);
+    }
 
     fields.push(`updated_at = CURRENT_TIMESTAMP`);
     values.push(id);
@@ -160,7 +174,7 @@ export class MotivationRepository {
       UPDATE motivations
       SET ${fields.join(', ')}
       WHERE id = $${idx}
-      RETURNING id, title, verse, reference, reflection, prayer, status, created_at, updated_at;
+      RETURNING id, title, verse, reference, reflection, prayer, status, day_number, created_at, updated_at;
     `;
     const res = await query(text, values);
     return res.rows[0] || null;
@@ -292,10 +306,10 @@ export class MotivationRepository {
 
     // Data query
     const dataSql = `
-      SELECT id, title, verse, reference, reflection, prayer, status, created_at, updated_at
+      SELECT id, title, verse, reference, reflection, prayer, status, day_number, created_at, updated_at
       FROM motivations
       ${whereClause}
-      ORDER BY created_at DESC
+      ORDER BY COALESCE(day_number, 999999) ASC, created_at DESC
       LIMIT $${idx++} OFFSET $${idx++};
     `;
     const dataValues = [...values, limitNum, offset];
@@ -362,7 +376,7 @@ export class MotivationRepository {
     }
 
     const text = `
-      SELECT id, title, verse, reference, reflection, prayer, status, created_at, updated_at
+      SELECT id, title, verse, reference, reflection, prayer, status, day_number, created_at, updated_at
       FROM motivations
       ORDER BY updated_at DESC, created_at DESC
       LIMIT $1;
@@ -385,10 +399,10 @@ export class MotivationRepository {
     }
 
     const text = `
-      SELECT id, title, verse, reference, reflection, prayer, status, created_at, updated_at
+      SELECT id, title, verse, reference, reflection, prayer, status, day_number, created_at, updated_at
       FROM motivations
       WHERE status = 'published'
-      ORDER BY updated_at DESC, created_at DESC
+      ORDER BY COALESCE(day_number, 999999) ASC, updated_at DESC, created_at DESC
       LIMIT 1;
     `;
     const res = await query(text);
@@ -416,6 +430,7 @@ export class MotivationRepository {
           id,
           ...item,
           status: item.status || status,
+          day_number: item.day_number || index + 1,
           created_at: new Date(),
           updated_at: new Date(),
         });
@@ -432,20 +447,21 @@ export class MotivationRepository {
       const values = [];
 
       batch.forEach((item, index) => {
-        const offset = index * 6;
-        valuePlaceholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6})`);
+        const offset = index * 7;
+        valuePlaceholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7})`);
         values.push(
           item.title,
           item.verse,
           item.reference,
           item.reflection,
           item.prayer,
-          item.status || status
+          item.status || status,
+          item.day_number ? parseInt(item.day_number, 10) : null
         );
       });
 
       const text = `
-        INSERT INTO motivations (title, verse, reference, reflection, prayer, status)
+        INSERT INTO motivations (title, verse, reference, reflection, prayer, status, day_number)
         VALUES ${valuePlaceholders.join(', ')}
         RETURNING id;
       `;

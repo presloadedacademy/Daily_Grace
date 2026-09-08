@@ -33,6 +33,13 @@ export function validateMotivationRecord(item, identifier = 0) {
     }
   }
 
+  if (item.day_number !== undefined && item.day_number !== null) {
+    const parsedDay = parseInt(item.day_number, 10);
+    if (!isNaN(parsedDay) && parsedDay > 0) {
+      sanitized.day_number = parsedDay;
+    }
+  }
+
   return {
     isValid: errors.length === 0,
     sanitized: errors.length === 0 ? sanitized : null,

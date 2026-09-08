@@ -41,7 +41,9 @@ export function TodayPage() {
   const [status, setStatus] = useState('loading'); // 'loading' | 'success' | 'empty' | 'error'
   const [errorMessage, setErrorMessage] = useState('');
   const [isCompleted, setIsCompleted] = useState(false);
+  const [currentStreak, setCurrentStreak] = useState(1);
   const [isReaderOpen, setIsReaderOpen] = useState(false);
+  const [completionToast, setCompletionToast] = useState(null);
 
   const fetchTodayGrace = async () => {
     setStatus('loading');
@@ -50,7 +52,22 @@ export function TodayPage() {
       const data = await motivationService.getTodaysMotivation();
       if (data) {
         setMotivation(data);
+        setIsCompleted(Boolean(data.is_completed));
+        setCurrentStreak(data.current_streak || 1);
         setStatus('success');
+
+        // Check if URL query has ?completed=true (e.g. redirected from 1-click email)
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('completed') === 'true') {
+          setIsCompleted(true);
+          const streakParam = parseInt(params.get('streak'), 10);
+          if (!isNaN(streakParam) && streakParam > 0) {
+            setCurrentStreak(streakParam);
+          }
+          setCompletionToast('Devotion marked as completed! Streak active 🔥');
+          // Clean up URL without reloading
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
       } else {
         setStatus('empty');
       }
@@ -70,6 +87,21 @@ export function TodayPage() {
     fetchTodayGrace();
   }, []);
 
+  const handleMarkCompleted = async () => {
+    try {
+      const res = await motivationService.markCompleted();
+      setIsCompleted(true);
+      if (res?.current_streak) {
+        setCurrentStreak(res.current_streak);
+      }
+      setCompletionToast('Devotion completed! +1 Streak 🔥');
+    } catch (err) {
+      console.error('Failed to mark devotion completed:', err);
+      // Fallback optimistically
+      setIsCompleted(true);
+    }
+  };
+
   const bgImage = getMotivationBg(motivation);
 
   return (
@@ -78,6 +110,22 @@ export function TodayPage() {
 
         {/* 1. TOP HEADER */}
         <TodayHeader />
+
+        {/* Toast Notification */}
+        {completionToast && (
+          <div 
+            className="alert alert-success" 
+            style={{ margin: '0.75rem 1rem 0 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#EBF3ED', color: '#264E36', border: '1px solid #C4DDCB', borderRadius: '8px', padding: '0.75rem 1rem' }}
+          >
+            <span>✓ {completionToast}</span>
+            <button 
+              onClick={() => setCompletionToast(null)} 
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold', color: '#264E36' }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Loading State */}
         {status === 'loading' && (
@@ -117,11 +165,13 @@ export function TodayPage() {
             <section className="today-date-section">
               <div className="today-date-left">
                 <span className="today-date-text">{getFormattedDate()}</span>
-                <span className="today-date-tag">TODAY'S DEVOTIONAL</span>
+                <span className="today-date-tag">
+                  {motivation.day_number ? `DAY ${motivation.day_number} DEVOTIONAL` : "TODAY'S DEVOTIONAL"}
+                </span>
               </div>
-              <div className="today-streak-pill" title="1 Day Devotional Streak">
+              <div className="today-streak-pill" title={`${currentStreak} Day Devotional Streak`}>
                 <span className="streak-icon">🔥</span>
-                <span className="streak-count">1</span>
+                <span className="streak-count">{currentStreak}</span>
               </div>
             </section>
 
@@ -141,7 +191,7 @@ export function TodayPage() {
             {/* 6. PROGRESS / DAILY COMPLETION (GOLD THEMED) */}
             <DailyProgress 
               isCompleted={isCompleted}
-              onToggleComplete={() => setIsCompleted(!isCompleted)}
+              onToggleComplete={handleMarkCompleted}
               onOpenDevotional={() => setIsReaderOpen(true)}
             />
           </main>
@@ -158,7 +208,9 @@ export function TodayPage() {
           <DevotionalReaderModal
             motivation={motivation}
             isCompleted={isCompleted}
-            onToggleComplete={() => setIsCompleted(true)}
+            onToggleComplete={() => {
+              handleMarkCompleted();
+            }}
             onClose={() => setIsReaderOpen(false)}
             bgImage={bgImage}
           />

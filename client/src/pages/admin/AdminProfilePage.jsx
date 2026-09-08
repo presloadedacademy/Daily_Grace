@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { useNavigate } from '../../context/NavigationContext.jsx';
 import { adminService } from '../../services/adminService.js';
+import { userService } from '../../services/userService.js';
 import AdminNav from '../../components/AdminNav.jsx';
 import BottomNavigation from '../../components/BottomNavigation.jsx';
 
 export default function AdminProfilePage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
@@ -14,8 +17,30 @@ export default function AdminProfilePage() {
   });
 
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+
+  const handleSignOut = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const handleDeleteAccount = async () => {
+    setError(null);
+    setDeleting(true);
+    try {
+      await userService.deleteAccount();
+      logout();
+      navigate('/login');
+    } catch (err) {
+      setShowDeleteModal(false);
+      setError(err.data?.message || err.message || 'Failed to delete administrator account.');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -196,9 +221,110 @@ export default function AdminProfilePage() {
             </form>
           </section>
 
+          {/* 5. SESSION & ACCOUNT MANAGEMENT */}
+          <section className="profile-form-card" style={{ marginTop: '1.5rem' }}>
+            <h3 className="profile-card-section-title">Administrator Session</h3>
+            <p className="settings-action-desc" style={{ marginBottom: '1rem' }}>
+              Sign out of the administrator control panel.
+            </p>
+
+            <button
+              type="button"
+              id="admin-signout-btn"
+              className="settings-signout-btn"
+              onClick={handleSignOut}
+              style={{ width: '100%' }}
+            >
+              <span className="signout-icon">🚪</span>
+              <span>Sign Out of Admin Console</span>
+            </button>
+
+            <div style={{ marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-subtle)' }}>
+              <h4 style={{ fontSize: '0.92rem', color: '#C53030', margin: '0 0 0.35rem 0', fontWeight: 700 }}>
+                Danger Zone
+              </h4>
+              <p className="settings-action-desc" style={{ marginBottom: '0.85rem' }}>
+                Permanently delete this administrator account. (Requires at least one other active administrator).
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(true)}
+                style={{
+                  background: 'none',
+                  border: '1px solid #E53E3E',
+                  color: '#E53E3E',
+                  padding: '0.6rem 1.25rem',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Delete Administrator Account
+              </button>
+            </div>
+          </section>
+
         </main>
 
-        {/* 5. BOTTOM NAVIGATION */}
+        {/* DELETE ACCOUNT CONFIRMATION MODAL */}
+        {showDeleteModal && (
+          <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="admin-delete-modal-title">
+            <div className="modal-content" style={{ borderRadius: 'var(--radius-lg)' }}>
+              <h3
+                id="admin-delete-modal-title"
+                style={{
+                  fontSize: '1.3rem',
+                  color: '#C53030',
+                  marginBottom: '0.75rem',
+                  fontFamily: 'var(--font-serif)',
+                }}
+              >
+                Delete Administrator Account?
+              </h3>
+
+              <p style={{ fontSize: '0.9rem', lineHeight: 1.6, color: 'var(--color-text-muted)', marginBottom: '1.75rem' }}>
+                This will permanently delete this administrator profile. This action cannot be performed if you are the sole remaining system administrator.
+              </p>
+
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(false)}
+                  disabled={deleting}
+                  style={{
+                    padding: '0.65rem 1.25rem',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--color-border)',
+                    backgroundColor: 'transparent',
+                    color: 'var(--color-text)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteAccount}
+                  disabled={deleting}
+                  style={{
+                    padding: '0.65rem 1.25rem',
+                    borderRadius: 'var(--radius-md)',
+                    border: 'none',
+                    backgroundColor: '#C53030',
+                    color: '#FFFFFF',
+                    fontWeight: 600,
+                    cursor: deleting ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {deleting ? 'Deleting...' : 'Yes, Delete Account'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 6. BOTTOM NAVIGATION */}
         <BottomNavigation />
 
       </div>

@@ -40,8 +40,11 @@ export class DailyAssignmentRepository {
         reflection: motivation.reflection,
         prayer: motivation.prayer,
         status: motivation.status || 'published',
+        day_number: motivation.day_number || null,
         assigned_date: assignment.assigned_date,
         cycle_number: assignment.cycle_number,
+        is_completed: assignment.is_completed || false,
+        completed_at: assignment.completed_at || null,
       };
     }
 
@@ -56,11 +59,44 @@ export class DailyAssignmentRepository {
         m.reflection,
         m.prayer,
         m.status,
+        m.day_number,
         dm.assigned_date,
-        dm.cycle_number
+        dm.cycle_number,
+        dm.is_completed,
+        dm.completed_at
       FROM daily_motivations dm
       INNER JOIN motivations m ON dm.motivation_id = m.id
       WHERE dm.user_id = $1 AND dm.assigned_date = $2;
+    `;
+    const res = await query(text, [userId, assignedDate]);
+    return res.rows[0] || null;
+  }
+
+  /**
+   * Mark a daily motivation assignment as completed for a user on a given date.
+   */
+  static async markAssignmentCompleted(userId, assignedDate) {
+    if (!userId) return null;
+
+    if (!isDatabaseAvailable()) {
+      const key = `${userId}:${assignedDate}`;
+      const assignment = devDailyAssignmentsStore.get(key);
+      if (assignment) {
+        assignment.is_completed = true;
+        assignment.completed_at = new Date();
+        devDailyAssignmentsStore.set(key, assignment);
+        return assignment;
+      }
+      return null;
+    }
+
+    if (!isValidUuid(userId)) return null;
+
+    const text = `
+      UPDATE daily_motivations
+      SET is_completed = TRUE, completed_at = CURRENT_TIMESTAMP
+      WHERE user_id = $1 AND assigned_date = $2
+      RETURNING id, user_id, motivation_id, assigned_date, cycle_number, is_completed, completed_at;
     `;
     const res = await query(text, [userId, assignedDate]);
     return res.rows[0] || null;
@@ -93,7 +129,7 @@ export class DailyAssignmentRepository {
 
   /**
    * Find one unused motivation for a user within a specific cycle number.
-   * STRICT: Only selects motivations with status = 'published'.
+   * STRICT: Only selects motivations with status = 'published' ordered sequentially by day_number.
    */
   static async findUnusedMotivationInCycle(userId, cycleNumber) {
     if (!isDatabaseAvailable()) {
@@ -104,12 +140,14 @@ export class DailyAssignmentRepository {
         }
       }
 
+      const available = [];
       for (const motivation of devMotivationsStore.values()) {
         if ((motivation.status || 'published') === 'published' && !assignedIds.has(motivation.id)) {
-          return { ...motivation };
+          available.push(motivation);
         }
       }
-      return null;
+      available.sort((a, b) => (a.day_number || 999999) - (b.day_number || 999999));
+      return available[0] ? { ...available[0] } : null;
     }
 
     if (!isValidUuid(userId)) return null;
@@ -122,7 +160,8 @@ export class DailyAssignmentRepository {
         m.reference,
         m.reflection,
         m.prayer,
-        m.status
+        m.status,
+        m.day_number
       FROM motivations m
       WHERE m.status = 'published'
         AND NOT EXISTS (
@@ -132,7 +171,7 @@ export class DailyAssignmentRepository {
             AND dm.user_id = $1
             AND dm.cycle_number = $2
         )
-      ORDER BY m.id
+      ORDER BY COALESCE(m.day_number, 999999) ASC, m.created_at ASC, m.id ASC
       LIMIT 1;
     `;
     const res = await query(text, [userId, cycleNumber]);

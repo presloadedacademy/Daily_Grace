@@ -80,4 +80,16 @@ export class UserController {
       next(error);
     }
   }
+
+  /**
+   * DELETE /api/users/me
+   */
+  static async deleteAccount(req, res, next) {
+    try {
+      const result = await UserService.deleteAccount(req.user.userId);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

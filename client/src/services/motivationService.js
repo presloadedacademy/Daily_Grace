@@ -10,6 +10,17 @@ class MotivationService {
     });
     return response.data;
   }
+
+  /**
+   * Mark today's devotional completed and recalculate streak.
+   */
+  async markCompleted(date = null) {
+    const response = await api.request('/api/motivations/complete', {
+      method: 'POST',
+      body: date ? { date } : {},
+    });
+    return response.data;
+  }
 }
 
 export const motivationService = new MotivationService();

@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import jwt from 'jsonwebtoken';
 import { config } from '../config/env.js';
 
 class EmailService {
@@ -279,11 +280,24 @@ class EmailService {
    * @param {Object} params
    * @param {string} params.to Recipient email address
    * @param {string} params.name Recipient name
+   * @param {string} [params.userId] Recipient user UUID for signed 1-click completion
+   * @param {string} [params.date] Assigned date (YYYY-MM-DD)
    * @param {Object} [params.motivation] The assigned motivation for today
    */
-  async sendDailyReminderEmail({ to, name, motivation = null }) {
+  async sendDailyReminderEmail({ to, name, userId = null, date = null, motivation = null }) {
     const homeUrl = `${config.clientUrl}/home`;
     const settingsUrl = `${config.clientUrl}/settings`;
+    const targetDate = date || new Date().toISOString().split('T')[0];
+
+    let completeUrl = `${config.clientUrl}/today?completed=true`;
+    if (userId) {
+      const completionToken = jwt.sign(
+        { userId, date: targetDate, action: 'complete_devotion' },
+        config.jwtSecret,
+        { expiresIn: '7d' }
+      );
+      completeUrl = `${config.serverUrl}/api/motivations/complete-by-token?token=${completionToken}&userId=${userId}`;
+    }
 
     const title = motivation?.title || 'Your Daily Grace';
     const verse = motivation?.verse || 'The Lord is my strength and my shield; my heart trusts in him, and he helps me.';
@@ -293,7 +307,7 @@ class EmailService {
 
     const subject = `Your Daily Grace: ${title} 🌿`;
 
-    const textContent = `Good morning, ${name}.\n\nHere is your Daily Grace for today:\n\n${title.toUpperCase()}\n\nBible Verse:\n"${verse}"\n— ${reference}\n\nReflection:\n${reflection}\n\nPrayer:\n${prayer}\n\nRead and reflect in the Daily Grace app: ${homeUrl}\n\nMay God's grace guide you today.\n\nDAILY GRACE\n\n---\nManage notification preferences or unsubscribe: ${settingsUrl}`;
+    const textContent = `Good morning, ${name}.\n\nHere is your Daily Grace for today:\n\n${title.toUpperCase()}\n\nBible Verse:\n"${verse}"\n— ${reference}\n\nReflection:\n${reflection}\n\nPrayer:\n${prayer}\n\n✓ Mark as Read / Completed (+1 Streak 🔥):\n${completeUrl}\n\nRead and reflect in the Daily Grace app:\n${homeUrl}\n\nMay God's grace guide you today.\n\nDAILY GRACE\n\n---\nManage notification preferences or unsubscribe: ${settingsUrl}`;
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -350,7 +364,7 @@ class EmailService {
                     </div>
 
                     <!-- Prayer -->
-                    <div style="background-color: #F6F7F2; border-radius: 6px; padding: 18px 20px; margin: 0 0 32px 0;">
+                    <div style="background-color: #F6F7F2; border-radius: 6px; padding: 18px 20px; margin: 0 0 28px 0;">
                       <h3 style="font-size: 12px; font-weight: 700; color: #354F42; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 8px 0;">
                         Prayer
                       </h3>
@@ -359,10 +373,17 @@ class EmailService {
                       </p>
                     </div>
 
-                    <!-- CTA Button -->
+                    <!-- Primary 1-Click Completion CTA Button -->
                     <div style="text-align: center; margin: 28px 0 16px 0;">
-                      <a href="${homeUrl}" target="_blank" style="background-color: #354F42; color: #FFFFFF; text-decoration: none; padding: 14px 36px; border-radius: 4px; font-size: 15px; font-weight: 600; display: inline-block; letter-spacing: 0.5px;">
-                        Open in Daily Grace
+                      <a href="${completeUrl}" target="_blank" style="background-color: #354F42; color: #FFFFFF; text-decoration: none; padding: 15px 36px; border-radius: 6px; font-size: 15px; font-weight: 700; display: inline-block; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(53,79,66,0.25);">
+                        Mark Devotion Completed (+1 Streak 🔥)
+                      </a>
+                    </div>
+
+                    <!-- Secondary link to open app -->
+                    <div style="text-align: center; margin: 8px 0 20px 0;">
+                      <a href="${homeUrl}" target="_blank" style="color: #6B7C72; text-decoration: underline; font-size: 13px;">
+                        Open full experience in Daily Grace
                       </a>
                     </div>
 
@@ -378,11 +399,8 @@ class EmailService {
                     <p style="font-size: 12px; color: #888888; margin: 0 0 6px 0;">
                       You are receiving this email because you enabled Daily Reminders in your Daily Grace account.
                     </p>
-                    <p style="font-size: 12px; color: #888888; margin: 0 0 10px 0;">
-                      <a href="${settingsUrl}" style="color: #354F42; text-decoration: underline;">Manage Notification Preferences</a>
-                    </p>
-                    <p style="font-size: 11px; color: #AAAAAA; margin: 0;">
-                      &copy; ${new Date().getFullYear()} Daily Grace. All rights reserved.
+                    <p style="font-size: 12px; color: #AAAAAA; margin: 0;">
+                      <a href="${settingsUrl}" style="color: #888888; text-decoration: underline;">Manage Preferences</a> · <a href="${settingsUrl}" style="color: #888888; text-decoration: underline;">Unsubscribe</a>
                     </p>
                   </td>
                 </tr>

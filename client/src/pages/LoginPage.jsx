@@ -20,6 +20,7 @@ export function LoginPage({ onNavigate }) {
   const [showResend, setShowResend] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [resendStatus, setResendStatus] = useState(null);
+  const [userNotFound, setUserNotFound] = useState(false);
 
   const validateForm = () => {
     const errs = {};
@@ -39,8 +40,9 @@ export function LoginPage({ onNavigate }) {
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }
-    if (serverError) {
+    if (serverError || userNotFound) {
       setServerError('');
+      setUserNotFound(false);
       setShowResend(false);
       setResendStatus(null);
     }
@@ -70,6 +72,7 @@ export function LoginPage({ onNavigate }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setServerError('');
+    setUserNotFound(false);
     setShowResend(false);
     setResendStatus(null);
 
@@ -85,16 +88,22 @@ export function LoginPage({ onNavigate }) {
       login(response.token, response.user);
       onNavigate('/home');
     } catch (err) {
-      const isUnverified =
-        err.code === 'ACCOUNT_NOT_VERIFIED' ||
-        (err.message && err.message.toLowerCase().includes('confirm your email')) ||
-        (err.message && err.message.toLowerCase().includes('verify your email'));
-
-      if (isUnverified) {
-        setServerError('Please confirm your email address before logging in.');
-        setShowResend(true);
+      if (err.code === 'USER_NOT_FOUND') {
+        setUserNotFound(true);
+      } else if (err.code === 'INVALID_PASSWORD') {
+        setServerError('Incorrect password. Please check your password and try again.');
       } else {
-        setServerError(err.message || 'Invalid email or password.');
+        const isUnverified =
+          err.code === 'ACCOUNT_NOT_VERIFIED' ||
+          (err.message && err.message.toLowerCase().includes('confirm your email')) ||
+          (err.message && err.message.toLowerCase().includes('verify your email'));
+
+        if (isUnverified) {
+          setServerError('Please confirm your email address before logging in.');
+          setShowResend(true);
+        } else {
+          setServerError(err.message || 'Invalid email or password.');
+        }
       }
     } finally {
       setIsLoading(false);
@@ -113,6 +122,48 @@ export function LoginPage({ onNavigate }) {
         </div>
 
         {serverError && <Alert type="error" message={serverError} />}
+
+        {userNotFound && (
+          <div
+            style={{
+              backgroundColor: '#FFF5F5',
+              border: '1px solid #FEB2B2',
+              borderRadius: 'var(--radius-md)',
+              padding: '0.9rem 1.1rem',
+              marginBottom: '1.25rem',
+              fontSize: '0.9rem',
+              lineHeight: 1.5,
+              color: '#9B2C2C',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem' }}>
+              <span style={{ fontSize: '1.1rem', lineHeight: 1 }}>🔍</span>
+              <div>
+                <strong>No account found with this email.</strong>
+                <p style={{ margin: '0.25rem 0 0 0', color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>
+                  Please check the spelling or{' '}
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('/register')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--color-primary)',
+                      fontWeight: 700,
+                      textDecoration: 'underline',
+                      cursor: 'pointer',
+                      padding: 0,
+                      fontSize: '0.85rem',
+                    }}
+                  >
+                    create an account
+                  </button>{' '}
+                  to get started.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {showResend && (
           <div style={{ marginBottom: '1.25rem', padding: '1rem', backgroundColor: 'var(--surface-alt)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>

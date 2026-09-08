@@ -63,25 +63,23 @@ export class AuthService {
     const verificationTokenHash = hashToken(rawVerificationToken);
     const verificationTokenExpiresAt = new Date(Date.now() + TOKEN_EXPIRY_HOURS * 60 * 60 * 1000);
 
-    // Persist verified user record
+    // Persist new user record (email_verified starts as false for optional profile verification)
     const newUser = await UserRepository.createUser({
       name: name.trim(),
       email: normalizedEmail,
       passwordHash,
       verificationTokenHash,
       verificationTokenExpiresAt,
-      emailVerified: true,
+      emailVerified: false,
     });
 
-    // Send welcome email via SMTP (or log in dev mode)
-    try {
-      await emailService.sendWelcomeEmail({
-        to: newUser.email,
-        name: newUser.name,
-      });
-    } catch (e) {
-      console.warn('[AuthService] Welcome email notice:', e.message);
-    }
+    // Non-blocking asynchronous email dispatch so registration API responds in under 200ms
+    emailService.sendWelcomeEmail({
+      to: newUser.email,
+      name: newUser.name,
+    }).catch((e) => {
+      console.warn('[AuthService] Async welcome email notice:', e.message);
+    });
 
     // Generate JWT token for immediate authenticated session
     const token = jwt.sign(
@@ -204,12 +202,12 @@ export class AuthService {
     const user = await UserRepository.findByEmail(normalizedEmail);
 
     if (!user) {
-      throw new AppError('Invalid email or password.', 401, 'INVALID_CREDENTIALS');
+      throw new AppError('No account found with this email address. Please check the spelling or register.', 404, 'USER_NOT_FOUND');
     }
 
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
-      throw new AppError('Invalid email or password.', 401, 'INVALID_CREDENTIALS');
+      throw new AppError('Incorrect password. Please try again or reset your password.', 401, 'INVALID_PASSWORD');
     }
 
     // Generate JWT token including role

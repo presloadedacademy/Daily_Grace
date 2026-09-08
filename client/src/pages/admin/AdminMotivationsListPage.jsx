@@ -188,67 +188,130 @@ export default function AdminMotivationsListPage() {
               <table className="admin-table">
                 <thead>
                   <tr>
-                    <th>Title</th>
-                    <th>Scripture Reference</th>
+                    <th style={{ width: '85px' }}>Day Queue</th>
+                    <th>Title & Scripture</th>
+                    <th>Reference</th>
                     <th>Status</th>
                     <th>Created / Updated</th>
                     <th style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {motivations.map((item) => (
-                    <tr key={item.id}>
-                      <td>
-                        <strong style={{ color: 'var(--color-primary)', display: 'block', fontSize: '0.92rem' }}>
-                          {item.title}
-                        </strong>
-                        <span style={{ color: 'var(--color-text-muted)', fontSize: '0.78rem', display: 'block', maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          "{item.verse}"
-                        </span>
-                      </td>
-                      <td>
-                        <span style={{ color: 'var(--color-gold)', fontWeight: 600, fontSize: '0.85rem' }}>
-                          {item.reference}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`admin-badge badge-${item.status}`}>
-                          {item.status}
-                        </span>
-                      </td>
-                      <td style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
-                        {formatDate(item.updated_at || item.created_at)}
-                      </td>
-                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <div style={{ display: 'inline-flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
-                          <button
-                            onClick={() => handleToggleStatus(item)}
-                            className="admin-action-btn toggle"
-                            title={item.status === 'published' ? 'Unpublish to Draft' : 'Publish to Live'}
-                          >
-                            {item.status === 'published' ? 'Unpublish' : 'Publish'}
-                          </button>
-                          <Link
-                            to={`/admin/motivations/${item.id}/edit`}
-                            className="admin-action-btn"
-                            title="Edit Motivation"
-                          >
-                            Edit
-                          </Link>
-                          <button
-                            onClick={() => {
-                              setDeletingItem(item);
-                              setDeleteModalError(null);
-                            }}
-                            className="admin-action-btn delete"
-                            title="Delete Motivation"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {motivations.map((item, index) => {
+                    const dayNum = item.day_number || index + 1;
+                    const isToday = dayNum === 1;
+                    const isTomorrow = dayNum === 2;
+
+                    return (
+                      <tr key={item.id}>
+                        <td>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'flex-start' }}>
+                            <span 
+                              style={{ 
+                                display: 'inline-block', 
+                                padding: '0.2rem 0.55rem', 
+                                backgroundColor: 'var(--color-bg-secondary)', 
+                                border: '1px solid var(--border-medium)', 
+                                borderRadius: '4px', 
+                                fontSize: '0.78rem', 
+                                fontWeight: 700, 
+                                color: 'var(--color-primary)' 
+                              }}
+                            >
+                              Day {dayNum}
+                            </span>
+                            {isToday && (
+                              <span 
+                                style={{ 
+                                  display: 'inline-flex', 
+                                  alignItems: 'center', 
+                                  gap: '0.2rem', 
+                                  padding: '0.15rem 0.45rem', 
+                                  backgroundColor: '#EAF4EC', 
+                                  color: '#264E36', 
+                                  borderRadius: '3px', 
+                                  fontSize: '0.68rem', 
+                                  fontWeight: 700, 
+                                  textTransform: 'uppercase', 
+                                  letterSpacing: '0.5px' 
+                                }}
+                              >
+                                ☀️ Today
+                              </span>
+                            )}
+                            {isTomorrow && (
+                              <span 
+                                style={{ 
+                                  display: 'inline-flex', 
+                                  alignItems: 'center', 
+                                  gap: '0.2rem', 
+                                  padding: '0.15rem 0.45rem', 
+                                  backgroundColor: '#FFF7E6', 
+                                  color: '#B87A00', 
+                                  borderRadius: '3px', 
+                                  fontSize: '0.68rem', 
+                                  fontWeight: 700, 
+                                  textTransform: 'uppercase', 
+                                  letterSpacing: '0.5px' 
+                                }}
+                              >
+                                🌅 Tomorrow
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <strong style={{ color: 'var(--color-primary)', display: 'block', fontSize: '0.92rem' }}>
+                            {item.title}
+                          </strong>
+                          <span style={{ color: 'var(--color-text-muted)', fontSize: '0.78rem', display: 'block', maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            "{item.verse}"
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{ color: 'var(--color-gold)', fontWeight: 600, fontSize: '0.85rem' }}>
+                            {item.reference}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`admin-badge badge-${item.status}`}>
+                            {item.status}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                          {formatDate(item.updated_at || item.created_at)}
+                        </td>
+                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <div style={{ display: 'inline-flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                            <button
+                              onClick={() => handleToggleStatus(item)}
+                              className="admin-action-btn toggle"
+                              title={item.status === 'published' ? 'Unpublish to Draft' : 'Publish to Live'}
+                            >
+                              {item.status === 'published' ? 'Unpublish' : 'Publish'}
+                            </button>
+                            <Link
+                              to={`/admin/motivations/${item.id}/edit`}
+                              className="admin-action-btn"
+                              title="Edit Motivation"
+                            >
+                              Edit
+                            </Link>
+                            <button
+                              onClick={() => {
+                                setDeletingItem(item);
+                                setDeleteModalError(null);
+                              }}
+                              className="admin-action-btn delete"
+                              title="Delete Motivation"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

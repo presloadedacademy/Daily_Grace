@@ -23,6 +23,9 @@ CREATE TABLE IF NOT EXISTS users (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'user';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS notification_enabled BOOLEAN DEFAULT TRUE NOT NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT FALSE NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS current_streak INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS longest_streak INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_completed_date DATE;
 
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(LOWER(email));
@@ -38,14 +41,17 @@ CREATE TABLE IF NOT EXISTS motivations (
     reflection TEXT NOT NULL,
     prayer TEXT NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'published',
+    day_number INTEGER,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 -- Migration support for existing instances
 ALTER TABLE motivations ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'published';
+ALTER TABLE motivations ADD COLUMN IF NOT EXISTS day_number INTEGER;
 
 CREATE INDEX IF NOT EXISTS idx_motivations_status ON motivations(status);
+CREATE INDEX IF NOT EXISTS idx_motivations_day_number ON motivations(day_number);
 CREATE INDEX IF NOT EXISTS idx_motivations_title ON motivations(LOWER(title));
 CREATE INDEX IF NOT EXISTS idx_motivations_reference ON motivations(LOWER(reference));
 CREATE INDEX IF NOT EXISTS idx_motivations_created ON motivations(created_at DESC);
@@ -59,9 +65,15 @@ CREATE TABLE IF NOT EXISTS daily_motivations (
     motivation_id UUID NOT NULL REFERENCES motivations(id) ON DELETE RESTRICT,
     assigned_date DATE NOT NULL,
     cycle_number INTEGER NOT NULL DEFAULT 1,
+    is_completed BOOLEAN NOT NULL DEFAULT FALSE,
+    completed_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT uq_user_assigned_date UNIQUE (user_id, assigned_date)
 );
+
+-- Migration support for existing instances
+ALTER TABLE daily_motivations ADD COLUMN IF NOT EXISTS is_completed BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE daily_motivations ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP WITH TIME ZONE;
 
 CREATE INDEX IF NOT EXISTS idx_daily_motivations_user_cycle ON daily_motivations(user_id, cycle_number);
 CREATE INDEX IF NOT EXISTS idx_daily_motivations_user_date ON daily_motivations(user_id, assigned_date);

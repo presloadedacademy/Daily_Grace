@@ -129,6 +129,41 @@ export class UserService {
       message: 'Your Daily Grace journey has been reset from the beginning.',
     };
   }
+
+  /**
+   * Delete authenticated user's account and associated data.
+   */
+  static async deleteAccount(userId) {
+    if (!userId || !isValidUuid(userId)) {
+      throw new AppError('Invalid authentication session. Please log in again.', 401, 'UNAUTHORIZED');
+    }
+
+    const user = await UserRepository.findById(userId);
+    if (!user) {
+      throw new AppError('User account not found.', 404, 'NOT_FOUND');
+    }
+
+    // If user is admin, prevent deleting the sole remaining administrator
+    if (user.role === 'admin') {
+      const adminCount = await UserRepository.countTotalAdmins();
+      if (adminCount <= 1) {
+        throw new AppError(
+          'Cannot delete the last remaining administrator account. Please promote another administrator before deleting this account.',
+          400,
+          'LAST_ADMIN'
+        );
+      }
+    }
+
+    // Clean up daily motivations and user record
+    await MotivationRepository.deleteUserAssignments(userId);
+    await UserRepository.deleteUser(userId);
+
+    return {
+      success: true,
+      message: 'Your account and all associated data have been permanently deleted.',
+    };
+  }
 }
 
 

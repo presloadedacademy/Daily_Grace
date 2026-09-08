@@ -49,6 +49,8 @@ export class ReminderService {
         await emailService.sendDailyReminderEmail({
           to: user.email,
           name: user.name,
+          userId: user.id,
+          date: reminderDate,
           motivation,
         });
 

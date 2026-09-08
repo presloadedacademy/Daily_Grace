@@ -13,6 +13,7 @@ router.patch('/preferences', UserController.updatePreferences);
 router.post('/complete-onboarding', UserController.completeOnboarding);
 router.patch('/onboarding', UserController.completeOnboarding);
 router.post('/reset-journey', UserController.resetJourney);
+router.delete('/me', UserController.deleteAccount);
 
 export default router;
 

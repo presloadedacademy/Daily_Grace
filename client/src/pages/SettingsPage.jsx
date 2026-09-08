@@ -62,6 +62,9 @@ export function SettingsPage() {
     }
   };
 
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const handleConfirmReset = async () => {
     setIsResetting(true);
     setFeedback(null);
@@ -77,6 +80,24 @@ export function SettingsPage() {
       });
     } finally {
       setIsResetting(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true);
+    setFeedback(null);
+    try {
+      await userService.deleteAccount();
+      logout();
+      navigate('/register');
+    } catch (err) {
+      setShowDeleteModal(false);
+      setFeedback({
+        type: 'error',
+        message: err.data?.message || err.message || 'Failed to delete account. Please try again.',
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -187,9 +208,9 @@ export function SettingsPage() {
               </div>
             </section>
 
-            {/* 4. ACCOUNT & SESSION (SIGN OUT) */}
+            {/* 4. ACCOUNT & SESSION (SIGN OUT & DELETE) */}
             <section className="settings-section-card">
-              <h3 className="profile-card-section-title">Session</h3>
+              <h3 className="profile-card-section-title">Session & Account</h3>
               <div className="settings-action-block">
                 <p className="settings-action-desc" style={{ marginBottom: '1rem' }}>
                   Sign out of your account on this device.
@@ -202,6 +223,31 @@ export function SettingsPage() {
                 >
                   <span className="signout-icon">🚪</span>
                   <span>Sign Out</span>
+                </button>
+              </div>
+
+              <div style={{ marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-subtle)' }}>
+                <h4 style={{ fontSize: '0.92rem', color: '#C53030', margin: '0 0 0.35rem 0', fontWeight: 700 }}>
+                  Danger Zone
+                </h4>
+                <p className="settings-action-desc" style={{ marginBottom: '0.85rem' }}>
+                  Permanently delete your account, saved preferences, and all reading progress.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(true)}
+                  style={{
+                    background: 'none',
+                    border: '1px solid #E53E3E',
+                    color: '#E53E3E',
+                    padding: '0.6rem 1.25rem',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Delete Account
                 </button>
               </div>
             </section>
@@ -254,6 +300,63 @@ export function SettingsPage() {
                   }}
                 >
                   {isResetting ? 'Resetting...' : 'Yes, Reset Journey'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 6. DELETE ACCOUNT CONFIRMATION MODAL */}
+        {showDeleteModal && (
+          <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="delete-account-modal-title">
+            <div className="modal-content" style={{ borderRadius: 'var(--radius-lg)' }}>
+              <h3
+                id="delete-account-modal-title"
+                style={{
+                  fontSize: '1.3rem',
+                  color: '#C53030',
+                  marginBottom: '0.75rem',
+                  fontFamily: 'var(--font-serif)',
+                }}
+              >
+                Permanently delete account?
+              </h3>
+
+              <p style={{ fontSize: '0.9rem', lineHeight: 1.6, color: 'var(--color-text-muted)', marginBottom: '1.75rem' }}>
+                All of your reading history, daily motivational assignments, and account settings will be erased permanently from Daily Grace. This action cannot be undone.
+              </p>
+
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(false)}
+                  disabled={isDeleting}
+                  style={{
+                    padding: '0.65rem 1.25rem',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--color-border)',
+                    backgroundColor: 'transparent',
+                    color: 'var(--color-text)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  disabled={isDeleting}
+                  style={{
+                    padding: '0.65rem 1.25rem',
+                    borderRadius: 'var(--radius-md)',
+                    border: 'none',
+                    backgroundColor: '#C53030',
+                    color: '#FFFFFF',
+                    fontWeight: 600,
+                    cursor: isDeleting ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {isDeleting ? 'Deleting...' : 'Yes, Delete Account'}
                 </button>
               </div>
             </div>

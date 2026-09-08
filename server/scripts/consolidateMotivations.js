@@ -100,6 +100,7 @@ export function consolidateAll() {
   allRecords.forEach((item, index) => {
     const validation = validateMotivationRecord(item, index + 1);
     if (validation.isValid) {
+      validation.sanitized.day_number = validRecords.length + 1;
       validRecords.push(validation.sanitized);
     } else {
       invalidRecords.push({ item, errors: validation.errors });
