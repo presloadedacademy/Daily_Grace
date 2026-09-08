@@ -9,7 +9,10 @@ export class MotivationController {
    */
   static async getTodaysMotivation(req, res, next) {
     try {
-      const userId = req.user.userId;
+      const userId = req.user?.userId || req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ success: false, code: 'UNAUTHORIZED', message: 'User authentication required.' });
+      }
       const motivation = await MotivationService.getTodaysMotivation(userId);
 
       res.status(200).json({
@@ -17,6 +20,7 @@ export class MotivationController {
         data: motivation,
       });
     } catch (error) {
+      console.error('[MotivationController Error] Failed to get today motivation:', error);
       next(error);
     }
   }
@@ -27,18 +31,32 @@ export class MotivationController {
    */
   static async markCompleted(req, res, next) {
     try {
-      const userId = req.user.userId;
+      const userId = req.user?.userId || req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ success: false, code: 'UNAUTHORIZED', message: 'User authentication required.' });
+      }
+
       const customDate = req.body?.date || null;
       const result = await MotivationService.markDevotionCompleted(userId, customDate);
 
       res.status(200).json({
         success: true,
         message: 'Devotional marked as completed.',
+        is_completed: true,
+        streak: result.current_streak,
         data: result,
       });
     } catch (error) {
+      console.error('Error completing motivation:', error);
       next(error);
     }
+  }
+
+  /**
+   * Alias for markCompleted
+   */
+  static async completeMotivation(req, res, next) {
+    return MotivationController.markCompleted(req, res, next);
   }
 
   /**
