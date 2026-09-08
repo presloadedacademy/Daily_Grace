@@ -4,7 +4,8 @@ import { authenticateToken } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
-// GET /api/motivations/complete-by-token (One-click completion from email)
+// GET /api/motivations/email-complete and /api/motivations/complete-by-token (One-click completion from email)
+router.get('/email-complete', MotivationController.completeByToken);
 router.get('/complete-by-token', MotivationController.completeByToken);
 
 // GET /api/motivations/today or /api/motivations or /api/daily (Protected)

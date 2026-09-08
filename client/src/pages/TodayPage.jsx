@@ -52,8 +52,13 @@ export function TodayPage() {
       const data = await motivationService.getTodaysMotivation();
       if (data) {
         setMotivation(data);
-        const isDone = Boolean(data.is_completed || data.completed);
-        setIsCompleted(isDone);
+        const completed = Boolean(
+          data?.is_completed ||
+          data?.completed ||
+          data?.assignment?.is_completed ||
+          data?.assignment?.completed
+        );
+        setIsCompleted(completed);
         setCurrentStreak(data.current_streak || 1);
         setStatus('success');
 

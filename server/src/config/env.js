@@ -1,7 +1,18 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-const appUrl = process.env.APP_URL || process.env.CLIENT_URL || 'http://localhost:5173';
+const isProd = process.env.NODE_ENV === 'production';
+
+const serverUrl =
+  process.env.API_BASE_URL ||
+  process.env.RENDER_EXTERNAL_URL ||
+  process.env.SERVER_URL ||
+  (isProd ? 'https://daily-grace.onrender.com' : 'http://localhost:5000');
+
+const appUrl =
+  process.env.APP_URL ||
+  process.env.CLIENT_URL ||
+  (isProd ? 'https://dailygrace.work.gd' : 'http://localhost:5173');
 
 export const config = {
   port: parseInt(process.env.PORT || '5000', 10),
@@ -11,7 +22,7 @@ export const config = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   appUrl,
   clientUrl: appUrl,
-  serverUrl: process.env.SERVER_URL || 'http://localhost:5000',
+  serverUrl,
   dailyReminderTime: process.env.DAILY_REMINDER_TIME || '08:00',
   reminderTimezone: process.env.REMINDER_TIMEZONE || process.env.TIMEZONE || 'Africa/Lagos',
   enableReminderScheduler: process.env.ENABLE_REMINDER_SCHEDULER === 'true',

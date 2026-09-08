@@ -13,9 +13,15 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
+    let body = options.body;
+    if (body && typeof body === 'object' && !(body instanceof FormData) && !(body instanceof URLSearchParams)) {
+      body = JSON.stringify(body);
+    }
+
     const config = {
       ...options,
       headers,
+      body,
     };
 
     try {

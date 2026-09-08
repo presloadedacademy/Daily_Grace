@@ -276,6 +276,18 @@ class EmailService {
   }
 
   /**
+   * Resolve backend base URL for email links, ensuring production never defaults to localhost.
+   */
+  static getBaseUrl() {
+    const isProd = process.env.NODE_ENV === 'production';
+    let baseUrl = process.env.API_BASE_URL || process.env.RENDER_EXTERNAL_URL || (isProd ? 'https://daily-grace.onrender.com' : (config.serverUrl || 'https://daily-grace.onrender.com'));
+    if (isProd && baseUrl.includes('localhost')) {
+      baseUrl = 'https://daily-grace.onrender.com';
+    }
+    return baseUrl;
+  }
+
+  /**
    * Send a daily reminder email containing the user's actual Daily Grace motivation.
    * @param {Object} params
    * @param {string} params.to Recipient email address
@@ -288,6 +300,7 @@ class EmailService {
     const homeUrl = `${config.clientUrl}/home`;
     const settingsUrl = `${config.clientUrl}/settings`;
     const targetDate = date || new Date().toISOString().split('T')[0];
+    const baseUrl = EmailService.getBaseUrl();
 
     let completeUrl = `${config.clientUrl}/today?completed=true`;
     if (userId) {
@@ -296,7 +309,7 @@ class EmailService {
         config.jwtSecret,
         { expiresIn: '7d' }
       );
-      completeUrl = `${config.serverUrl}/api/motivations/complete-by-token?token=${completionToken}&userId=${userId}`;
+      completeUrl = `${baseUrl}/api/motivations/email-complete?token=${completionToken}&userId=${userId}`;
     }
 
     const title = motivation?.title || 'Your Daily Grace';
@@ -441,4 +454,5 @@ class EmailService {
   }
 }
 
+export { EmailService };
 export const emailService = new EmailService();

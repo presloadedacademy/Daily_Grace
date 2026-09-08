@@ -26,7 +26,15 @@ export class DailyAssignmentRepository {
 
     if (!isDatabaseAvailable()) {
       const key = `${userId}:${assignedDate}`;
-      const assignment = devDailyAssignmentsStore.get(key);
+      let assignment = devDailyAssignmentsStore.get(key);
+      if (!assignment) {
+        for (const asg of devDailyAssignmentsStore.values()) {
+          if (asg.user_id === userId && (asg.assigned_date === assignedDate)) {
+            assignment = asg;
+            break;
+          }
+        }
+      }
       if (!assignment) return null;
 
       const motivation = devMotivationsStore.get(assignment.motivation_id);
@@ -66,7 +74,9 @@ export class DailyAssignmentRepository {
         dm.completed_at
       FROM daily_motivations dm
       INNER JOIN motivations m ON dm.motivation_id = m.id
-      WHERE dm.user_id = $1 AND dm.assigned_date = $2::DATE;
+      WHERE dm.user_id = $1 AND (dm.assigned_date = $2::DATE OR dm.assigned_date = CURRENT_DATE)
+      ORDER BY dm.assigned_date DESC, dm.created_at DESC
+      LIMIT 1;
     `;
     const res = await query(text, [userId, assignedDate]);
     if (!res.rows[0]) return null;
@@ -100,7 +110,12 @@ export class DailyAssignmentRepository {
         assignment.is_completed = true;
         assignment.completed_at = new Date();
         devDailyAssignmentsStore.set(key, assignment);
-        return assignment;
+        const origKey = `${assignment.user_id}:${assignment.assigned_date}`;
+        devDailyAssignmentsStore.set(origKey, assignment);
+        return {
+          ...assignment,
+          is_completed: true,
+        };
       }
       return null;
     }
@@ -110,7 +125,7 @@ export class DailyAssignmentRepository {
     const text = `
       UPDATE daily_motivations
       SET is_completed = TRUE, completed_at = CURRENT_TIMESTAMP
-      WHERE user_id = $1 AND assigned_date = $2::DATE
+      WHERE user_id = $1 AND (assigned_date = $2::DATE OR assigned_date = CURRENT_DATE)
       RETURNING id, user_id, motivation_id, assigned_date, cycle_number, is_completed, completed_at;
     `;
     let res = await query(text, [userId, assignedDate]);
@@ -131,7 +146,7 @@ export class DailyAssignmentRepository {
       res = await query(fallbackText, [userId]);
     }
 
-    return res.rows[0] || null;
+    return res.rows[0] ? { ...res.rows[0], is_completed: Boolean(res.rows[0].is_completed) } : null;
   }
 
   /**

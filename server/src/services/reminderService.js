@@ -1,5 +1,5 @@
 import { ReminderRepository } from '../repositories/reminderRepository.js';
-import { MotivationService } from './motivationService.js';
+import { MotivationService, getLagosDateString } from './motivationService.js';
 import { emailService } from './emailService.js';
 
 export class ReminderService {
@@ -11,7 +11,7 @@ export class ReminderService {
    * @returns {Promise<{ reminderDate: string, eligibleCount: number, sentCount: number, failedCount: number, errors: Array<Object> }>}
    */
   static async processDailyReminders(customDate = null, mockUsersList = null) {
-    const reminderDate = customDate || new Date().toISOString().split('T')[0];
+    const reminderDate = getLagosDateString(customDate);
 
     // Determine eligible users (must be enabled and not already received reminder today)
     let eligibleUsers = [];

@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { MotivationService } from '../src/services/motivationService.js';
 import { MotivationRepository } from '../src/repositories/motivationRepository.js';
 import { UserRepository } from '../src/repositories/userRepository.js';
+import { EmailService } from '../src/services/emailService.js';
 import { generateUuid } from '../src/utils/cryptoUtils.js';
 import { config } from '../src/config/env.js';
 
@@ -115,4 +116,72 @@ describe('DAILY GRACE — Dual Streak Tracking & Daily Rotation Suite', () => {
 
     assert.notEqual(motDay1.id, motDay2.id, 'Day 1 and Day 2 must have distinct motivations');
   });
+
+  it('Production Email URL: Resolves production domain and never defaults to localhost in production', () => {
+    const originalEnv = process.env.NODE_ENV;
+    const originalApiBase = process.env.API_BASE_URL;
+    const originalRenderUrl = process.env.RENDER_EXTERNAL_URL;
+
+    try {
+      process.env.NODE_ENV = 'production';
+      delete process.env.API_BASE_URL;
+      delete process.env.RENDER_EXTERNAL_URL;
+
+      const prodBaseUrl = EmailService.getBaseUrl();
+      assert.equal(prodBaseUrl, 'https://daily-grace.onrender.com');
+      assert.equal(prodBaseUrl.includes('localhost'), false, 'Production base URL must never be localhost');
+
+      process.env.API_BASE_URL = 'https://custom-api.dailygrace.com';
+      assert.equal(EmailService.getBaseUrl(), 'https://custom-api.dailygrace.com');
+    } finally {
+      process.env.NODE_ENV = originalEnv;
+      if (originalApiBase) process.env.API_BASE_URL = originalApiBase;
+      else delete process.env.API_BASE_URL;
+      if (originalRenderUrl) process.env.RENDER_EXTERNAL_URL = originalRenderUrl;
+      else delete process.env.RENDER_EXTERNAL_URL;
+    }
+  });
+
+  it('Sequential rotation advances to next day number (Day 7 -> Day 8)', async () => {
+    const userId = generateUuid();
+    
+    // Assign Day 1 on 2026-09-01
+    const day1 = await MotivationService.getTodaysMotivation(userId, '2026-09-01');
+    assert.ok(day1);
+
+    // Assign Day 2 on 2026-09-02
+    const day2 = await MotivationService.getTodaysMotivation(userId, '2026-09-02');
+    assert.ok(day2);
+    assert.notEqual(day1.id, day2.id);
+
+    // Requesting same date 2026-09-02 returns same assignment
+    const day2Again = await MotivationService.getTodaysMotivation(userId, '2026-09-02');
+    assert.equal(day2Again.id, day2.id);
+  });
+
+  it('Completion Persistence: getTodaysMotivation returns is_completed = true after markDevotionCompleted', async () => {
+    const user = await UserRepository.createUser({
+      name: 'Persistence Tester',
+      email: 'persistence@example.com',
+      passwordHash: 'hash',
+      emailVerified: true,
+    });
+
+    // 1. Initial fetch before completion -> is_completed is false
+    const initial = await MotivationService.getTodaysMotivation(user.id, '2026-09-08');
+    assert.equal(initial.is_completed, false, 'Initial state must be uncompleted');
+
+    // 2. Mark devotion completed
+    const completionResult = await MotivationService.markDevotionCompleted(user.id, '2026-09-08');
+    assert.equal(completionResult.success, true);
+    assert.equal(completionResult.is_completed, true);
+
+    // 3. Immediately re-fetch today's motivation (simulates page refresh or navigation)
+    const refetched = await MotivationService.getTodaysMotivation(user.id, '2026-09-08');
+    assert.equal(refetched.id, initial.id, 'Must return same devotional assignment');
+    assert.equal(refetched.is_completed, true, 'is_completed must remain true on refetch');
+    assert.equal(refetched.completed, true, 'completed alias must also be true');
+    assert.ok(refetched.completed_at, 'completed_at timestamp must be set');
+  });
 });
+

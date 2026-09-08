@@ -3,6 +3,21 @@ import { DailyAssignmentRepository } from '../repositories/dailyAssignmentReposi
 import { UserRepository } from '../repositories/userRepository.js';
 import { AppError } from './authService.js';
 import { isValidUuid } from '../utils/cryptoUtils.js';
+import { config } from '../config/env.js';
+
+/**
+ * Helper to compute the calendar date string (YYYY-MM-DD) in Africa/Lagos (WAT) timezone.
+ */
+export function getLagosDateString(customDate = null) {
+  if (customDate) return customDate;
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: config.reminderTimezone || 'Africa/Lagos',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(new Date());
+}
 
 export class MotivationService {
   /**
@@ -78,8 +93,8 @@ export class MotivationService {
     const currentStreak = user?.current_streak || 0;
     const longestStreak = user?.longest_streak || 0;
 
-    // Determine today's date in YYYY-MM-DD format
-    const today = customDate || new Date().toISOString().split('T')[0];
+    // Determine today's date in Africa/Lagos timezone (YYYY-MM-DD format)
+    const today = getLagosDateString(customDate);
 
     // Step 1: Check if user already received a motivation today
     const existing = await DailyAssignmentRepository.findAssignmentByUserAndDate(userId, today);
@@ -177,7 +192,7 @@ export class MotivationService {
       last_completed_date: null,
     };
 
-    const today = customDate || new Date().toISOString().split('T')[0];
+    const today = getLagosDateString(customDate);
 
     // Ensure assignment exists for this date
     let assignment = await DailyAssignmentRepository.findAssignmentByUserAndDate(userId, today);
