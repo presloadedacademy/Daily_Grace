@@ -45,12 +45,12 @@ export const config = {
     secure,
     user: cleanUser,
     password: cleanPass,
-    from: process.env.SMTP_FROM || process.env.EMAIL_FROM || '"DAILY GRACE" <_mainaccount@dailygrace.work.gd>',
+    from: process.env.SMTP_FROM || process.env.EMAIL_FROM || '"DAILY GRACE" <hello@dailygrace.work.gd>',
   },
   vapid: {
     publicKey: process.env.VAPID_PUBLIC_KEY || 'BDPaXy6CzbKkGGr7WEe5iCrr50ELCFxP6_WAt5jnlSNWIHWlTfnv-EmgDNKky37BAVpoR8dM8-t446w1HfOtnro',
     privateKey: process.env.VAPID_PRIVATE_KEY || 'isHFMQWZd53GZPv0vB76itBE7k_R28iZx8I21epvKfw',
-    subject: process.env.VAPID_SUBJECT || 'mailto:_mainaccount@dailygrace.work.gd',
+    subject: process.env.VAPID_SUBJECT || 'mailto:hello@dailygrace.work.gd',
   },
 };
 
