@@ -180,7 +180,7 @@ export function SettingsPage() {
                 </div>
                 <div>
                   <strong style={{ color: 'var(--color-text)' }}>Schedule: </strong>
-                  <span>Every morning at 08:00 AM (Africa/Lagos)</span>
+                  <span>Every morning at 05:00 AM (Africa/Lagos)</span>
                 </div>
                 <div>
                   <strong style={{ color: 'var(--color-text)' }}>Content: </strong>

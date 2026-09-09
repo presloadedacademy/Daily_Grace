@@ -16,7 +16,7 @@ export class ReminderController {
         enabled: Boolean(profile.notification_enabled),
         email: profile.email,
         name: profile.name,
-        schedule: '08:00 AM (Daily)',
+        schedule: '05:00 AM (Daily)',
       });
     } catch (error) {
       next(error);

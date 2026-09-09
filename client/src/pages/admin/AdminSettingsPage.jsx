@@ -156,7 +156,7 @@ export default function AdminSettingsPage() {
                   </span>
                 </div>
                 <span className="admin-badge badge-admin">
-                  08:00 AM (Daily)
+                  05:00 AM (Daily)
                 </span>
               </div>
             </section>

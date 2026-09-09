@@ -224,8 +224,8 @@ describe('DAILY GRACE — Complete Daily Email Reminder & Duplicate Protection S
    * TEST 11 — Timezone calculation accuracy
    */
   it('Test 11: Timezone calculation correctly computes Africa/Lagos date and time', () => {
-    // 2026-09-02 07:00:00 UTC is 2026-09-02 08:00:00 Africa/Lagos (UTC+1)
-    const testUtcDate = new Date('2026-09-02T07:00:00Z');
+    // 2026-09-02 04:00:00 UTC is 2026-09-02 05:00:00 Africa/Lagos (UTC+1)
+    const testUtcDate = new Date('2026-09-02T04:00:00Z');
     const formatter = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Africa/Lagos',
       year: 'numeric',
@@ -242,7 +242,7 @@ describe('DAILY GRACE — Complete Daily Email Reminder & Duplicate Protection S
     const minute = getPart('minute');
     const timeString = `${hour}:${minute}`;
 
-    assert.equal(timeString, '08:00', '07:00 UTC must format to 08:00 in Africa/Lagos (Nigeria Time)');
+    assert.equal(timeString, '05:00', '04:00 UTC must format to 05:00 in Africa/Lagos (Nigeria Time)');
   });
 });
 
