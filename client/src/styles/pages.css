@@ -1962,6 +1962,20 @@
   word-break: break-all;
 }
 
+.otp-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--color-forest);
+  background-color: var(--color-forest-light);
+  padding: 0.22rem 0.65rem;
+  border-radius: var(--radius-full);
+  letter-spacing: 0.03em;
+  animation: modalFadeIn 0.2s ease-out;
+}
+
 .otp-alert {
   display: flex;
   align-items: center;

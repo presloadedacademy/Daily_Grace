@@ -80,21 +80,11 @@ export function ProfilePage() {
     }
   };
 
-  const handleVerifyEmail = async () => {
+  const handleVerifyEmail = () => {
     if (!email) return;
-    setIsSendingVerification(true);
     setFeedback(null);
-    try {
-      await api.sendVerificationOtp();
-      setShowOtpModal(true);
-    } catch (err) {
-      setFeedback({
-        type: 'error',
-        message: err.message || 'Failed to send verification code. Please try again.',
-      });
-    } finally {
-      setIsSendingVerification(false);
-    }
+    setIsSendingVerification(false);
+    setShowOtpModal(true);
   };
 
   const handleOtpSuccess = (updatedUser) => {

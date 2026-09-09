@@ -17,6 +17,9 @@ class EmailService {
           user: config.email.user,
           pass: config.email.password,
         },
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
+        socketTimeout: 7000,
         tls: {
           rejectUnauthorized: false,
         },

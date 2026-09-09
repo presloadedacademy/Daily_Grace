@@ -94,6 +94,23 @@ class ApiClient {
       method: 'GET',
     });
   }
+
+  post(endpoint, body, options = {}) {
+    const formatted = endpoint.startsWith('/api') ? endpoint : `/api${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+    return this.request(formatted, {
+      method: 'POST',
+      body: body ? JSON.stringify(body) : undefined,
+      ...options,
+    });
+  }
+
+  get(endpoint, options = {}) {
+    const formatted = endpoint.startsWith('/api') ? endpoint : `/api${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+    return this.request(formatted, {
+      method: 'GET',
+      ...options,
+    });
+  }
 }
 
 export const api = new ApiClient();

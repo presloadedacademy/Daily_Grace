@@ -140,15 +140,20 @@ export class AuthService {
 
     await UserRepository.updateVerificationOtp(user.id, otp, expiresAt);
 
-    await emailService.sendVerificationOtpEmail({
-      to: user.email,
-      name: user.name,
-      otp,
-    });
+    // Dispatch email asynchronously so the HTTP response returns immediately (< 2s)
+    emailService
+      .sendVerificationOtpEmail({
+        to: user.email,
+        name: user.name,
+        otp,
+      })
+      .catch((err) => {
+        console.error('[AuthService Error] Failed to send OTP verification email:', err.message);
+      });
 
     return {
       success: true,
-      message: `Verification code sent to ${user.email}.`,
+      message: 'Code sent',
       expiresInMinutes: 10,
     };
   }

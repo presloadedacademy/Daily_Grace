@@ -4,21 +4,27 @@ import { LoadingSpinner } from './LoadingSpinner.jsx';
 
 export default function OtpVerificationModal({ email, isOpen, onClose, onSuccess }) {
   const [digits, setDigits] = useState(['', '', '', '', '', '']);
-  const [countdown, setCountdown] = useState(60);
+  const [countdown, setCountdown] = useState(30);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [error, setError] = useState(null);
-  const [resendSuccess, setResendSuccess] = useState(null);
+  const [statusMessage, setStatusMessage] = useState('Code sent!');
 
   const inputRefs = useRef([]);
 
-  // Reset state and focus first box when modal opens
+  // Reset state, trigger OTP send, and focus first box when modal opens
   useEffect(() => {
     if (isOpen) {
       setDigits(['', '', '', '', '', '']);
       setError(null);
-      setResendSuccess(null);
-      setCountdown(60);
+      setStatusMessage('Code sent!');
+      setCountdown(30);
+
+      // Trigger OTP dispatch in background
+      api.sendVerificationOtp().catch((err) => {
+        console.warn('[OTP Modal] Initial send notice:', err.message);
+      });
+
       const timer = setTimeout(() => {
         if (inputRefs.current[0]) {
           inputRefs.current[0].focus();
@@ -28,7 +34,7 @@ export default function OtpVerificationModal({ email, isOpen, onClose, onSuccess
     }
   }, [isOpen]);
 
-  // Countdown timer for resend button
+  // 30-second Countdown timer for resend section
   useEffect(() => {
     if (!isOpen || countdown <= 0) return;
 
@@ -49,7 +55,6 @@ export default function OtpVerificationModal({ email, isOpen, onClose, onSuccess
 
   const handleDigitChange = (index, value) => {
     setError(null);
-    setResendSuccess(null);
 
     // Only allow numeric input
     const cleanVal = value.replace(/\D/g, '');
@@ -153,12 +158,12 @@ export default function OtpVerificationModal({ email, isOpen, onClose, onSuccess
 
     setIsResending(true);
     setError(null);
-    setResendSuccess(null);
+    setStatusMessage(null);
 
     try {
       await api.sendVerificationOtp();
-      setResendSuccess('A new verification code has been sent to your email.');
-      setCountdown(60);
+      setStatusMessage('Code sent!');
+      setCountdown(30);
       setDigits(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
     } catch (err) {
@@ -198,20 +203,20 @@ export default function OtpVerificationModal({ email, isOpen, onClose, onSuccess
           <p className="otp-modal-subtitle">
             Please enter the code we just sent to <strong className="otp-email-highlight">{email}</strong>
           </p>
+          {statusMessage && (
+            <div style={{ marginTop: '0.45rem' }}>
+              <span className="otp-status-badge">
+                ✓ {statusMessage}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Alert Feedback */}
+        {/* Error Feedback */}
         {error && (
           <div className="otp-alert otp-alert-error" role="alert">
             <span className="otp-alert-icon">⚠️</span>
             <span>{error}</span>
-          </div>
-        )}
-
-        {resendSuccess && (
-          <div className="otp-alert otp-alert-success" role="status">
-            <span className="otp-alert-icon">✓</span>
-            <span>{resendSuccess}</span>
           </div>
         )}
 
