@@ -1876,14 +1876,15 @@
    26. OTP CODE VERIFICATION MODAL
    ========================================================================== */
 .otp-modal-card {
-  max-width: 440px;
-  width: 90%;
+  width: 92%;
+  max-width: 380px;
   background-color: var(--color-white);
   border-radius: var(--radius-xl);
-  padding: 2rem 1.75rem;
+  padding: 1.5rem 1.25rem;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
   position: relative;
   text-align: center;
+  box-sizing: border-box;
   animation: modalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -2013,21 +2014,25 @@
 .otp-inputs-grid {
   display: flex;
   justify-content: center;
-  gap: 0.55rem;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
   margin-bottom: 1.5rem;
 }
 
 .otp-digit-input {
-  width: 46px;
-  height: 54px;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 46px;
+  height: 52px;
   text-align: center;
   font-family: 'Courier New', Courier, monospace, var(--font-sans);
-  font-size: 1.6rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--color-forest);
   background-color: #F8FAFC;
   border: 1.5px solid #E2E8F0;
-  border-radius: var(--radius-md);
+  border-radius: 12px;
   outline: none;
   transition: all var(--transition-fast);
   box-sizing: border-box;
@@ -2047,6 +2052,20 @@
 .otp-digit-input.has-error {
   border-color: #E53E3E;
   background-color: #FFF5F5;
+}
+
+@media (max-width: 360px) {
+  .otp-modal-card {
+    padding: 1.25rem 1rem;
+  }
+  .otp-inputs-grid {
+    gap: 6px;
+  }
+  .otp-digit-input {
+    height: 46px;
+    font-size: 1.1rem;
+    border-radius: 10px;
+  }
 }
 
 .otp-actions-wrapper {
