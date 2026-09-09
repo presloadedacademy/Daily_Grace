@@ -1976,6 +1976,11 @@
   animation: modalFadeIn 0.2s ease-out;
 }
 
+.otp-status-badge.otp-status-sending {
+  background-color: #EDF2F7;
+  color: #4A5568;
+}
+
 .otp-alert {
   display: flex;
   align-items: center;

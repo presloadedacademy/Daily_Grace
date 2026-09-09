@@ -2,41 +2,72 @@ import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api.js';
 import { LoadingSpinner } from './LoadingSpinner.jsx';
 
-export default function OtpVerificationModal({ email, isOpen, onClose, onSuccess }) {
+export default function OtpVerificationModal({
+  email,
+  userEmail,
+  isOpen = false,
+  open = false,
+  onClose,
+  onSuccess,
+  onVerified,
+}) {
+  const targetEmail = email || userEmail || '';
+  const isModalOpen = Boolean(isOpen || open);
+  const handleSuccess = onSuccess || onVerified;
+
   const [digits, setDigits] = useState(['', '', '', '', '', '']);
-  const [countdown, setCountdown] = useState(30);
-  const [isVerifying, setIsVerifying] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [isSendingInitial, setIsSendingInitial] = useState(false);
   const [isResending, setIsResending] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState(null);
-  const [statusMessage, setStatusMessage] = useState('Code sent!');
+  const [statusMessage, setStatusMessage] = useState(null);
 
   const inputRefs = useRef([]);
 
-  // Reset state, trigger OTP send, and focus first box when modal opens
+  // Trigger real send request when modal opens
   useEffect(() => {
-    if (isOpen) {
+    let isMounted = true;
+
+    if (isModalOpen) {
       setDigits(['', '', '', '', '', '']);
       setError(null);
-      setStatusMessage('Code sent!');
-      setCountdown(30);
+      setStatusMessage(null);
+      setCountdown(0);
+      setIsSendingInitial(true);
 
-      // Trigger OTP dispatch in background
-      api.sendVerificationOtp().catch((err) => {
-        console.warn('[OTP Modal] Initial send notice:', err.message);
-      });
+      api
+        .sendVerificationOtp()
+        .then(() => {
+          if (!isMounted) return;
+          setIsSendingInitial(false);
+          setStatusMessage('Code sent!');
+          setCountdown(30);
+          setError(null);
+        })
+        .catch((err) => {
+          if (!isMounted) return;
+          setIsSendingInitial(false);
+          setStatusMessage(null);
+          setError(err.message || 'Failed to send email. Please check your connection or try again.');
+        });
 
-      const timer = setTimeout(() => {
+      const focusTimer = setTimeout(() => {
         if (inputRefs.current[0]) {
           inputRefs.current[0].focus();
         }
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen]);
+      }, 150);
 
-  // 30-second Countdown timer for resend section
+      return () => {
+        isMounted = false;
+        clearTimeout(focusTimer);
+      };
+    }
+  }, [isModalOpen]);
+
+  // 30-second countdown timer
   useEffect(() => {
-    if (!isOpen || countdown <= 0) return;
+    if (!isModalOpen || countdown <= 0) return;
 
     const timer = setInterval(() => {
       setCountdown((prev) => {
@@ -49,9 +80,9 @@ export default function OtpVerificationModal({ email, isOpen, onClose, onSuccess
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isOpen, countdown]);
+  }, [isModalOpen, countdown]);
 
-  if (!isOpen) return null;
+  if (!isModalOpen) return null;
 
   const handleDigitChange = (index, value) => {
     setError(null);
@@ -65,7 +96,6 @@ export default function OtpVerificationModal({ email, isOpen, onClose, onSuccess
       return;
     }
 
-    // If user typed or pasted multiple digits in one box
     if (cleanVal.length > 1) {
       handlePastedCode(cleanVal, index);
       return;
@@ -75,12 +105,12 @@ export default function OtpVerificationModal({ email, isOpen, onClose, onSuccess
     newDigits[index] = cleanVal.slice(-1);
     setDigits(newDigits);
 
-    // Auto-advance to next input
+    // Auto-advance
     if (cleanVal && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
 
-    // Check if code is complete
+    // Auto-submit if all 6 filled
     const fullCode = newDigits.join('');
     if (fullCode.length === 6 && !newDigits.includes('')) {
       submitVerification(fullCode);
@@ -90,7 +120,6 @@ export default function OtpVerificationModal({ email, isOpen, onClose, onSuccess
   const handleKeyDown = (index, e) => {
     if (e.key === 'Backspace') {
       if (digits[index] === '' && index > 0) {
-        // Move to previous input and clear it
         e.preventDefault();
         const newDigits = [...digits];
         newDigits[index - 1] = '';
@@ -143,18 +172,18 @@ export default function OtpVerificationModal({ email, isOpen, onClose, onSuccess
 
     try {
       const response = await api.verifyEmailOtp(code);
-      if (onSuccess) {
-        onSuccess(response.user || response);
+      if (handleSuccess) {
+        handleSuccess(response.user || response);
       }
     } catch (err) {
-      setError(err.message || 'Invalid or expired code. Please try again.');
+      setError(err.message || 'Invalid or expired verification code. Please try again.');
     } finally {
       setIsVerifying(false);
     }
   };
 
   const handleResend = async () => {
-    if (countdown > 0 || isResending) return;
+    if (countdown > 0 || isResending || isSendingInitial) return;
 
     setIsResending(true);
     setError(null);
@@ -167,7 +196,7 @@ export default function OtpVerificationModal({ email, isOpen, onClose, onSuccess
       setDigits(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
     } catch (err) {
-      setError(err.message || 'Failed to resend code. Please try again.');
+      setError(err.message || 'Failed to send email. Please check your connection or try again.');
     } finally {
       setIsResending(false);
     }
@@ -201,15 +230,23 @@ export default function OtpVerificationModal({ email, isOpen, onClose, onSuccess
         <div className="otp-header-text">
           <h3 className="otp-modal-title">Email code</h3>
           <p className="otp-modal-subtitle">
-            Please enter the code we just sent to <strong className="otp-email-highlight">{email}</strong>
+            Please enter the code we just sent to <strong className="otp-email-highlight">{targetEmail}</strong>
           </p>
-          {statusMessage && (
-            <div style={{ marginTop: '0.45rem' }}>
+
+          {/* Dynamic Status / Sending Indicator */}
+          <div style={{ minHeight: '26px', marginTop: '0.45rem', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            {isSendingInitial && (
+              <span className="otp-status-badge otp-status-sending">
+                <LoadingSpinner size="small" color="#2D4A3E" />
+                <span>Sending code...</span>
+              </span>
+            )}
+            {!isSendingInitial && statusMessage && (
               <span className="otp-status-badge">
                 ✓ {statusMessage}
               </span>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Error Feedback */}
@@ -235,7 +272,7 @@ export default function OtpVerificationModal({ email, isOpen, onClose, onSuccess
               onKeyDown={(e) => handleKeyDown(index, e)}
               className={`otp-digit-input ${digit ? 'filled' : ''} ${error ? 'has-error' : ''}`}
               autoComplete="one-time-code"
-              disabled={isVerifying}
+              disabled={isVerifying || isSendingInitial}
               aria-label={`Digit ${index + 1} of verification code`}
             />
           ))}
@@ -247,7 +284,7 @@ export default function OtpVerificationModal({ email, isOpen, onClose, onSuccess
             type="button"
             className="otp-verify-btn"
             onClick={() => submitVerification()}
-            disabled={!isComplete || isVerifying}
+            disabled={!isComplete || isVerifying || isSendingInitial}
           >
             {isVerifying ? (
               <span className="otp-btn-loading">
@@ -271,9 +308,16 @@ export default function OtpVerificationModal({ email, isOpen, onClose, onSuccess
               type="button"
               className="otp-resend-btn"
               onClick={handleResend}
-              disabled={isResending}
+              disabled={isResending || isSendingInitial}
             >
-              {isResending ? 'Sending new code...' : 'Resend Code'}
+              {isResending ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <LoadingSpinner size="small" color="#2D4A3E" />
+                  <span>Sending...</span>
+                </span>
+              ) : (
+                'Resend Code'
+              )}
             </button>
           )}
         </div>

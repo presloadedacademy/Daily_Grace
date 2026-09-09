@@ -393,9 +393,12 @@ export function ProfilePage() {
         {/* OTP VERIFICATION MODAL */}
         <OtpVerificationModal
           isOpen={showOtpModal}
+          open={showOtpModal}
           email={email}
+          userEmail={email}
           onClose={() => setShowOtpModal(false)}
           onSuccess={handleOtpSuccess}
+          onVerified={handleOtpSuccess}
         />
 
         {/* 6. BOTTOM NAVIGATION */}
