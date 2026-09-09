@@ -277,6 +277,138 @@ class EmailService {
   }
 
   /**
+   * Send a 6-digit OTP verification email.
+   * Supports both object ({ to, name, otp }) and positional (email, name, otp) arguments.
+   */
+  async sendVerificationOtpEmail(arg1, arg2, arg3) {
+    let to, name, otp;
+    if (typeof arg1 === 'object' && arg1 !== null) {
+      to = arg1.to || arg1.email;
+      name = arg1.name || 'Friend';
+      otp = arg1.otp || arg1.code;
+    } else {
+      to = arg1;
+      name = arg2 || 'Friend';
+      otp = arg3;
+    }
+
+    const subject = 'Your Daily Grace verification code';
+
+    const textContent = `DAILY GRACE\n\nHello ${name},\n\nYour 6-digit verification code is:\n\n${otp}\n\nThis verification code expires in 10 minutes.\n\nIf you did not request this code, please disregard this message.\n\nOne Scripture. One Reflection. One Prayer.\n\nDAILY GRACE`;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${subject}</title>
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #F6F7F2; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #252525; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
+        <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F6F7F2; padding: 36px 16px;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 560px; background-color: #FFFFFF; border-radius: 8px; overflow: hidden; border: 1px solid #E6E8E0; box-shadow: 0 4px 16px rgba(0,0,0,0.04); margin: 0 auto;">
+                
+                <!-- Brand Header -->
+                <tr>
+                  <td align="center" style="padding: 36px 32px 24px 32px; border-bottom: 1px solid #F0F2EB; background-color: #FAFAF8;">
+                    <h1 style="color: #354F42; font-size: 24px; font-weight: 700; margin: 0 0 6px 0; letter-spacing: 2.5px;">DAILY GRACE</h1>
+                    <p style="color: #B8A46A; font-size: 13px; margin: 0; font-style: italic; letter-spacing: 0.5px;">One Scripture. One Reflection. One Prayer.</p>
+                  </td>
+                </tr>
+
+                <!-- Content Body -->
+                <tr>
+                  <td style="padding: 36px 32px;">
+                    <p style="font-size: 18px; color: #354F42; font-weight: 600; margin: 0 0 14px 0;">
+                      Hello ${name},
+                    </p>
+                    <p style="font-size: 15px; line-height: 1.6; color: #333333; margin: 0 0 24px 0;">
+                      Please enter the verification code below in your Daily Grace app to confirm your email address and verify your account.
+                    </p>
+
+                    <!-- Large 6-Digit OTP Code Display -->
+                    <table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 28px auto; width: 100%;">
+                      <tr>
+                        <td align="center">
+                          <div style="display: inline-block; background-color: #F6F7F2; border: 2px solid #E6E8E0; border-radius: 8px; padding: 18px 36px; text-align: center;">
+                            <span style="font-family: 'Courier New', Courier, monospace, sans-serif; font-size: 38px; font-weight: 700; letter-spacing: 10px; color: #354F42; line-height: 1;">
+                              ${otp}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Expiry Notice -->
+                    <div style="background-color: #FFFDF5; border-left: 3px solid #D9A441; border-radius: 0 4px 4px 0; padding: 12px 16px; margin: 24px 0;">
+                      <p style="font-size: 13px; color: #8A6D1C; margin: 0; line-height: 1.5;">
+                        ⏱ <strong>Notice:</strong> This verification code expires in <strong>10 minutes</strong>.
+                      </p>
+                    </div>
+
+                    <p style="font-size: 13px; line-height: 1.5; color: #888888; margin: 24px 0 0 0; text-align: center;">
+                      If you did not request this verification code, you can safely ignore this email.
+                    </p>
+
+                    <!-- Tagline Footer in Body -->
+                    <div style="border-top: 1px solid #F0F2EB; padding-top: 24px; margin-top: 28px; text-align: center;">
+                      <p style="font-size: 13px; color: #B8A46A; line-height: 1.6; margin: 0; font-weight: 500;">
+                        One Scripture.<br/>
+                        One Reflection.<br/>
+                        One Prayer.
+                      </p>
+                      <p style="font-size: 14px; font-weight: 700; color: #354F42; margin: 10px 0 0 0; letter-spacing: 1.5px;">
+                        DAILY GRACE
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                  <td align="center" style="padding: 16px 32px; background-color: #FBFBFA; border-top: 1px solid #F0F2EB;">
+                    <p style="font-size: 11px; color: #999999; margin: 0;">
+                      &copy; ${new Date().getFullYear()} Daily Grace. All rights reserved.
+                    </p>
+                  </td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const transporter = this.getTransporter();
+    if (transporter) {
+      try {
+        await transporter.sendMail({
+          from: config.email.from,
+          to,
+          subject,
+          text: textContent,
+          html: htmlContent,
+        });
+        return { success: true, mode: 'smtp' };
+      } catch (error) {
+        console.error('[EmailService Error] Failed to send verification OTP via SMTP:', error.message);
+        throw new Error("We couldn't send the verification code email right now. Please try again.");
+      }
+    } else {
+      console.log('\n================== [DAILY GRACE OTP VERIFICATION EMAIL] ==================');
+      console.log(`To: ${to} (${name})`);
+      console.log(`Subject: ${subject}`);
+      console.log(`6-Digit Verification Code: \x1b[32m\x1b[1m${otp}\x1b[0m (Expires in 10 minutes)`);
+      console.log('=========================================================================\n');
+      return { success: true, mode: 'development', otp };
+    }
+  }
+
+  /**
    * Resolve backend base URL for email links, ensuring production never defaults to localhost.
    */
   static getBaseUrl() {

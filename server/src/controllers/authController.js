@@ -27,6 +27,31 @@ export class AuthController {
 
 
   /**
+   * POST /api/auth/send-verification-otp (Protected)
+   */
+  static async sendVerificationOtp(req, res, next) {
+    try {
+      const result = await AuthService.sendVerificationOTP(req.user.userId);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/auth/verify-otp (Protected)
+   */
+  static async verifyEmailOtp(req, res, next) {
+    try {
+      const { code, otp } = req.body;
+      const result = await AuthService.verifyEmailOTP(req.user.userId, code || otp);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * GET / POST /api/auth/verify-email
    */
   static async verifyEmail(req, res, next) {

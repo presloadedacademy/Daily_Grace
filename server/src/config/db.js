@@ -47,6 +47,16 @@ export async function checkDbConnection() {
     const res = await query('SELECT NOW() as current_time');
     isDbOnline = true;
     console.log(`[DB] Connected to PostgreSQL successfully at ${res.rows[0].current_time}`);
+
+    // Auto-migrate any missing OTP/verification columns
+    await query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_otp VARCHAR(6);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_otp_expires_at TIMESTAMP WITH TIME ZONE;
+    `).catch((err) => {
+      console.warn('[DB Migration Warning]', err.message);
+    });
+
     return true;
   } catch (err) {
     isDbOnline = false;

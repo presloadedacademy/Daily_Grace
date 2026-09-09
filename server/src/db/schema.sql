@@ -11,10 +11,13 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'user',
     email_verified BOOLEAN DEFAULT FALSE NOT NULL,
+    is_verified BOOLEAN DEFAULT FALSE NOT NULL,
     notification_enabled BOOLEAN DEFAULT TRUE NOT NULL,
     onboarding_completed BOOLEAN DEFAULT FALSE NOT NULL,
     verification_token_hash VARCHAR(255),
     verification_token_expires_at TIMESTAMP WITH TIME ZONE,
+    verification_otp VARCHAR(6),
+    verification_otp_expires_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
@@ -26,11 +29,15 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS current_streak INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS longest_streak INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_completed_date DATE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_otp VARCHAR(6);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_otp_expires_at TIMESTAMP WITH TIME ZONE;
 
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(LOWER(email));
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_verification_token ON users(verification_token_hash);
+CREATE INDEX IF NOT EXISTS idx_users_verification_otp ON users(verification_otp);
 
 -- 2. Motivations Table (Phases 2, 4, & 6)
 CREATE TABLE IF NOT EXISTS motivations (

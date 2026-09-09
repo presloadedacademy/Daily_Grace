@@ -1872,5 +1872,241 @@
   font-size: 1rem;
 }
 
+/* ==========================================================================
+   26. OTP CODE VERIFICATION MODAL
+   ========================================================================== */
+.otp-modal-card {
+  max-width: 440px;
+  width: 90%;
+  background-color: var(--color-white);
+  border-radius: var(--radius-xl);
+  padding: 2rem 1.75rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  position: relative;
+  text-align: center;
+  animation: modalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.otp-modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+  transition: color var(--transition-fast);
+}
+
+.otp-modal-close:hover {
+  color: var(--color-text);
+}
+
+.otp-icon-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.1rem;
+}
+
+.otp-icon-badge {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #F0F7F4;
+  border: 1px solid #D2E7DC;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(45, 74, 62, 0.08);
+}
+
+.otp-icon-emoji {
+  font-size: 1.75rem;
+}
+
+.otp-header-text {
+  margin-bottom: 1.35rem;
+}
+
+.otp-modal-title {
+  font-family: var(--font-serif);
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--color-forest);
+  margin: 0 0 0.4rem 0;
+}
+
+.otp-modal-subtitle {
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.otp-email-highlight {
+  color: var(--color-text);
+  word-break: break-all;
+}
+
+.otp-alert {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.9rem;
+  border-radius: var(--radius-md);
+  font-size: 0.82rem;
+  margin-bottom: 1.25rem;
+  line-height: 1.4;
+}
+
+.otp-alert-error {
+  background-color: #FFF5F5;
+  border: 1px solid #FEB2B2;
+  color: #C53030;
+}
+
+.otp-alert-success {
+  background-color: #F0FFF4;
+  border: 1px solid #9AE6B4;
+  color: #276749;
+}
+
+.otp-alert-icon {
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.otp-inputs-grid {
+  display: flex;
+  justify-content: center;
+  gap: 0.55rem;
+  margin-bottom: 1.5rem;
+}
+
+.otp-digit-input {
+  width: 46px;
+  height: 54px;
+  text-align: center;
+  font-family: 'Courier New', Courier, monospace, var(--font-sans);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--color-forest);
+  background-color: #F8FAFC;
+  border: 1.5px solid #E2E8F0;
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: all var(--transition-fast);
+  box-sizing: border-box;
+}
+
+.otp-digit-input:focus {
+  border-color: var(--color-forest);
+  background-color: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(45, 74, 62, 0.14);
+}
+
+.otp-digit-input.filled {
+  border-color: #CBD5E0;
+  background-color: #FFFFFF;
+}
+
+.otp-digit-input.has-error {
+  border-color: #E53E3E;
+  background-color: #FFF5F5;
+}
+
+.otp-actions-wrapper {
+  margin-bottom: 1.1rem;
+}
+
+.otp-verify-btn {
+  width: 100%;
+  background: var(--color-gold-gradient);
+  color: #FFFFFF;
+  border: none;
+  border-radius: var(--radius-full);
+  padding: 0.85rem 1.5rem;
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-gold);
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.02em;
+}
+
+.otp-verify-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(217, 164, 65, 0.35);
+}
+
+.otp-verify-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.otp-btn-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.otp-resend-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.otp-timer-text {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+
+.otp-timer-count {
+  color: var(--color-forest);
+  font-weight: 700;
+}
+
+.otp-resend-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-forest);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  text-decoration: underline;
+  transition: color var(--transition-fast);
+}
+
+.otp-resend-btn:hover:not(:disabled) {
+  color: var(--color-gold);
+}
+
+.otp-resend-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 
 

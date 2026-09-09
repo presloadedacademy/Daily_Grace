@@ -14,5 +14,7 @@ router.post('/login', AuthController.login);
 
 // Protected Routes
 router.get('/me', authenticateToken, AuthController.getMe);
+router.post('/send-verification-otp', authenticateToken, AuthController.sendVerificationOtp);
+router.post('/verify-otp', authenticateToken, AuthController.verifyEmailOtp);
 
 export default router;

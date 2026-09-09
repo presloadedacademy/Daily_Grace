@@ -73,8 +73,35 @@ describe('DAILY GRACE — Real Email Verification & Authentication Tests', () =>
       const u = memoryUsers.get(userId);
       if (u) {
         u.email_verified = true;
+        u.is_verified = true;
         u.verification_token_hash = null;
         u.verification_token_expires_at = null;
+        u.verification_otp = null;
+        u.verification_otp_expires_at = null;
+        u.updated_at = new Date();
+        return { ...u };
+      }
+      return null;
+    };
+
+    UserRepository.updateVerificationOtp = async (userId, otp, expiresAt) => {
+      if (!userId || !isValidUuid(userId)) return null;
+      const u = memoryUsers.get(userId);
+      if (u) {
+        u.verification_otp = otp;
+        u.verification_otp_expires_at = expiresAt;
+        u.updated_at = new Date();
+        return { ...u };
+      }
+      return null;
+    };
+
+    UserRepository.clearVerificationOtp = async (userId) => {
+      if (!userId || !isValidUuid(userId)) return null;
+      const u = memoryUsers.get(userId);
+      if (u) {
+        u.verification_otp = null;
+        u.verification_otp_expires_at = null;
         u.updated_at = new Date();
         return { ...u };
       }
@@ -108,6 +135,7 @@ describe('DAILY GRACE — Real Email Verification & Authentication Tests', () =>
   // Track dispatched emails in tests
   let sentEmails = [];
   let sentWelcomeEmails = [];
+  let sentOtpEmails = [];
 
   emailService.sendVerificationEmail = async (arg1, arg2, arg3) => {
     let to, name, token;
@@ -121,6 +149,21 @@ describe('DAILY GRACE — Real Email Verification & Authentication Tests', () =>
       token = arg3;
     }
     sentEmails.push({ to, name, token });
+    return { success: true };
+  };
+
+  emailService.sendVerificationOtpEmail = async (arg1, arg2, arg3) => {
+    let to, name, otp;
+    if (typeof arg1 === 'object' && arg1 !== null) {
+      to = arg1.to || arg1.email;
+      name = arg1.name;
+      otp = arg1.otp || arg1.code;
+    } else {
+      to = arg1;
+      name = arg2;
+      otp = arg3;
+    }
+    sentOtpEmails.push({ to, name, otp });
     return { success: true };
   };
 
@@ -591,6 +634,146 @@ describe('DAILY GRACE — Real Email Verification & Authentication Tests', () =>
 
     const updatedProfile = await UserService.getProfile(res.user.id);
     assert.equal(updatedProfile.onboarding_completed, true);
+  });
+
+  /**
+   * 19. sendVerificationOTP generates a 6-digit numeric OTP and dispatches email with 10-min expiry
+   */
+  it('19. sendVerificationOTP generates a 6-digit numeric OTP and dispatches email with 10-min expiry', async () => {
+    sentOtpEmails = [];
+    const reg = await AuthService.register({
+      name: 'OTP Pilgrim',
+      email: 'otppilgrim@dailygrace.app',
+      password: 'SecureOtpPass123!',
+    });
+
+    const sendRes = await AuthService.sendVerificationOTP(reg.user.id);
+    assert.equal(sendRes.success, true);
+    assert.equal(sendRes.expiresInMinutes, 10);
+    assert.equal(sentOtpEmails.length, 1);
+    assert.equal(sentOtpEmails[0].to, 'otppilgrim@dailygrace.app');
+    assert.match(sentOtpEmails[0].otp, /^\d{6}$/);
+
+    const userInDb = await UserRepository.findById(reg.user.id);
+    assert.equal(userInDb.verification_otp, sentOtpEmails[0].otp);
+    assert.ok(new Date(userInDb.verification_otp_expires_at) > new Date());
+  });
+
+  /**
+   * 20. verifyEmailOTP successfully verifies user and clears OTP fields
+   */
+  it('20. verifyEmailOTP successfully verifies user, sets email_verified & is_verified, and clears OTP fields', async () => {
+    sentOtpEmails = [];
+    const reg = await AuthService.register({
+      name: 'Verifiable Soul',
+      email: 'verifiable@dailygrace.app',
+      password: 'SecureOtpPass123!',
+    });
+
+    await AuthService.sendVerificationOTP(reg.user.id);
+    const sentOtp = sentOtpEmails[0].otp;
+
+    const verifyRes = await AuthService.verifyEmailOTP(reg.user.id, sentOtp);
+    assert.equal(verifyRes.success, true);
+    assert.equal(verifyRes.user.email_verified, true);
+    assert.equal(verifyRes.user.is_verified, true);
+
+    const refreshed = await UserRepository.findById(reg.user.id);
+    assert.equal(refreshed.email_verified, true);
+    assert.equal(refreshed.is_verified, true);
+    assert.equal(refreshed.verification_otp, null);
+    assert.equal(refreshed.verification_otp_expires_at, null);
+  });
+
+  /**
+   * 21. verifyEmailOTP rejects invalid / mismatched OTP
+   */
+  it('21. verifyEmailOTP rejects invalid / mismatched OTP', async () => {
+    sentOtpEmails = [];
+    const reg = await AuthService.register({
+      name: 'Mismatch Tester',
+      email: 'mismatch@dailygrace.app',
+      password: 'SecureOtpPass123!',
+    });
+
+    await AuthService.sendVerificationOTP(reg.user.id);
+
+    await assert.rejects(
+      async () => {
+        await AuthService.verifyEmailOTP(reg.user.id, '000000');
+      },
+      (err) => {
+        assert.equal(err.statusCode, 400);
+        assert.equal(err.code, 'INVALID_OTP');
+        return true;
+      }
+    );
+  });
+
+  /**
+   * 22. verifyEmailOTP rejects expired OTP
+   */
+  it('22. verifyEmailOTP rejects expired OTP', async () => {
+    sentOtpEmails = [];
+    const reg = await AuthService.register({
+      name: 'Expired Tester',
+      email: 'expired@dailygrace.app',
+      password: 'SecureOtpPass123!',
+    });
+
+    await AuthService.sendVerificationOTP(reg.user.id);
+    const sentOtp = sentOtpEmails[0].otp;
+
+    // Simulate expired OTP (15 minutes in past)
+    await UserRepository.updateVerificationOtp(
+      reg.user.id,
+      sentOtp,
+      new Date(Date.now() - 15 * 60 * 1000)
+    );
+
+    await assert.rejects(
+      async () => {
+        await AuthService.verifyEmailOTP(reg.user.id, sentOtp);
+      },
+      (err) => {
+        assert.equal(err.statusCode, 400);
+        assert.equal(err.code, 'EXPIRED_OTP');
+        return true;
+      }
+    );
+  });
+
+  /**
+   * 23. verifyEmailOTP rejects malformed code formats
+   */
+  it('23. verifyEmailOTP rejects malformed code formats', async () => {
+    const reg = await AuthService.register({
+      name: 'Format Tester',
+      email: 'format@dailygrace.app',
+      password: 'SecureOtpPass123!',
+    });
+
+    await assert.rejects(
+      async () => {
+        await AuthService.verifyEmailOTP(reg.user.id, '123');
+      },
+      (err) => {
+        assert.equal(err.statusCode, 400);
+        assert.equal(err.code, 'INVALID_OTP');
+        return true;
+      }
+    );
+
+    await assert.rejects(
+      async () => {
+        await AuthService.verifyEmailOTP(reg.user.id, '');
+      },
+      (err) => {
+        assert.equal(err.statusCode, 400);
+        assert.equal(err.code, 'MISSING_OTP');
+        return true;
+      }
+    );
   });
 });
 

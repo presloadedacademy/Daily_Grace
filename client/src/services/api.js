@@ -76,6 +76,19 @@ class ApiClient {
     });
   }
 
+  sendVerificationOtp() {
+    return this.request('/api/auth/send-verification-otp', {
+      method: 'POST',
+    });
+  }
+
+  verifyEmailOtp(code) {
+    return this.request('/api/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+  }
+
   getMe() {
     return this.request('/api/auth/me', {
       method: 'GET',

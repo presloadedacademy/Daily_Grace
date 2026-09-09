@@ -114,6 +114,119 @@ export class AuthService {
 
 
   /**
+   * Generate and send a 6-digit verification OTP to the user's email.
+   */
+  static async sendVerificationOTP(userId) {
+    if (!userId || !isValidUuid(userId)) {
+      throw new AppError('Invalid authentication session. Please log in again.', 401, 'INVALID_TOKEN');
+    }
+
+    const user = await UserRepository.findById(userId);
+    if (!user) {
+      throw new AppError('User account not found.', 404, 'USER_NOT_FOUND');
+    }
+
+    if (user.email_verified && user.is_verified) {
+      return {
+        success: true,
+        message: 'Your email address is already verified.',
+        alreadyVerified: true,
+      };
+    }
+
+    // Generate random 6-digit numeric OTP code
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await UserRepository.updateVerificationOtp(user.id, otp, expiresAt);
+
+    await emailService.sendVerificationOtpEmail({
+      to: user.email,
+      name: user.name,
+      otp,
+    });
+
+    return {
+      success: true,
+      message: `Verification code sent to ${user.email}.`,
+      expiresInMinutes: 10,
+    };
+  }
+
+  /**
+   * Verify an email address using the 6-digit OTP.
+   */
+  static async verifyEmailOTP(userId, code) {
+    if (!userId || !isValidUuid(userId)) {
+      throw new AppError('Invalid authentication session. Please log in again.', 401, 'INVALID_TOKEN');
+    }
+
+    if (code === undefined || code === null || code === '') {
+      throw new AppError('Please enter the 6-digit verification code.', 400, 'MISSING_OTP');
+    }
+
+    const cleanCode = String(code).trim();
+    if (cleanCode.length !== 6 || !/^\d{6}$/.test(cleanCode)) {
+      throw new AppError('Verification code must be exactly 6 digits.', 400, 'INVALID_OTP');
+    }
+
+    const user = await UserRepository.findById(userId);
+    if (!user) {
+      throw new AppError('User account not found.', 404, 'USER_NOT_FOUND');
+    }
+
+    if (user.email_verified && user.is_verified) {
+      return {
+        success: true,
+        message: 'Your email is already verified.',
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role || 'user',
+          email_verified: true,
+          is_verified: true,
+          notification_enabled: Boolean(user.notification_enabled),
+          onboarding_completed: Boolean(user.onboarding_completed),
+        },
+      };
+    }
+
+    if (!user.verification_otp || !user.verification_otp_expires_at) {
+      throw new AppError('No active verification code found. Please request a new code.', 400, 'NO_OTP_FOUND');
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(user.verification_otp_expires_at);
+
+    if (now > expiresAt) {
+      throw new AppError('This verification code has expired. Please request a new code.', 400, 'EXPIRED_OTP');
+    }
+
+    if (user.verification_otp !== cleanCode) {
+      throw new AppError('Invalid verification code. Please check and try again.', 400, 'INVALID_OTP');
+    }
+
+    // Mark email verified and clear OTP
+    const updatedUser = await UserRepository.markEmailVerified(user.id);
+
+    return {
+      success: true,
+      message: 'Email verified successfully!',
+      user: {
+        id: updatedUser?.id || user.id,
+        name: updatedUser?.name || user.name,
+        email: updatedUser?.email || user.email,
+        role: updatedUser?.role || user.role || 'user',
+        email_verified: true,
+        is_verified: true,
+        notification_enabled: Boolean(updatedUser?.notification_enabled ?? user.notification_enabled),
+        onboarding_completed: Boolean(updatedUser?.onboarding_completed ?? user.onboarding_completed),
+      },
+    };
+  }
+
+  /**
    * Verify an email address using the received token.
    */
   static async verifyEmail(token) {

@@ -37,6 +37,7 @@ export class UserRepository {
         password_hash: passwordHash,
         role: assignedRole,
         email_verified: isVerified,
+        is_verified: isVerified,
         notification_enabled: true,
         onboarding_completed: false,
         current_streak: 0,
@@ -44,6 +45,8 @@ export class UserRepository {
         last_completed_date: null,
         verification_token_hash: verificationTokenHash,
         verification_token_expires_at: verificationTokenExpiresAt,
+        verification_otp: null,
+        verification_otp_expires_at: null,
         created_at: new Date(),
         updated_at: new Date(),
       };
@@ -61,6 +64,7 @@ export class UserRepository {
     password_hash,
     role,
     email_verified,
+    is_verified,
     notification_enabled,
     onboarding_completed,
     current_streak,
@@ -68,8 +72,8 @@ export class UserRepository {
     verification_token_hash,
     verification_token_expires_at
   )
-  VALUES ($1, $2, LOWER($3), $4, $5, $6, TRUE, FALSE, 0, 0, $7, $8)
-  RETURNING id, name, email, role, email_verified, notification_enabled, onboarding_completed, current_streak, longest_streak, last_completed_date, created_at, updated_at;
+  VALUES ($1, $2, LOWER($3), $4, $5, $6, $6, TRUE, FALSE, 0, 0, $7, $8)
+  RETURNING id, name, email, role, email_verified, is_verified, notification_enabled, onboarding_completed, current_streak, longest_streak, last_completed_date, created_at, updated_at;
 `;
 
     const values = [
@@ -111,6 +115,7 @@ export class UserRepository {
         password_hash,
         role,
         email_verified,
+        is_verified,
         notification_enabled,
         onboarding_completed,
         current_streak,
@@ -118,6 +123,8 @@ export class UserRepository {
         last_completed_date,
         verification_token_hash,
         verification_token_expires_at,
+        verification_otp,
+        verification_otp_expires_at,
         created_at,
         updated_at
       FROM users
@@ -145,11 +152,16 @@ export class UserRepository {
         email,
         role,
         email_verified,
+        is_verified,
         notification_enabled,
         onboarding_completed,
         current_streak,
         longest_streak,
         last_completed_date,
+        verification_token_hash,
+        verification_token_expires_at,
+        verification_otp,
+        verification_otp_expires_at,
         created_at,
         updated_at
       FROM users
@@ -214,9 +226,12 @@ export class UserRepository {
         email,
         role,
         email_verified,
+        is_verified,
         notification_enabled,
         verification_token_hash,
-        verification_token_expires_at
+        verification_token_expires_at,
+        verification_otp,
+        verification_otp_expires_at
       FROM users
       WHERE verification_token_hash = $1;
     `;
@@ -225,7 +240,7 @@ export class UserRepository {
   }
 
   /**
-   * Mark user's email as verified and invalidate token.
+   * Mark user's email as verified and invalidate token and OTP.
    */
   static async markEmailVerified(userId) {
     if (!userId || !isValidUuid(userId)) return null;
@@ -234,8 +249,11 @@ export class UserRepository {
       const u = devMemoryStore.get(userId);
       if (u) {
         u.email_verified = true;
+        u.is_verified = true;
         u.verification_token_hash = null;
         u.verification_token_expires_at = null;
+        u.verification_otp = null;
+        u.verification_otp_expires_at = null;
         u.updated_at = new Date();
         return { ...u };
       }
@@ -246,11 +264,74 @@ export class UserRepository {
       UPDATE users
       SET
         email_verified = TRUE,
+        is_verified = TRUE,
         verification_token_hash = NULL,
         verification_token_expires_at = NULL,
+        verification_otp = NULL,
+        verification_otp_expires_at = NULL,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = $1
-      RETURNING id, name, email, role, email_verified, notification_enabled, updated_at;
+      RETURNING id, name, email, role, email_verified, is_verified, notification_enabled, onboarding_completed, current_streak, longest_streak, last_completed_date, created_at, updated_at;
+    `;
+    const res = await query(text, [userId]);
+    return res.rows[0] || null;
+  }
+
+  /**
+   * Update verification OTP and expiration.
+   */
+  static async updateVerificationOtp(userId, otp, expiresAt) {
+    if (!userId || !isValidUuid(userId)) return null;
+
+    if (!isDatabaseAvailable()) {
+      const u = devMemoryStore.get(userId);
+      if (u) {
+        u.verification_otp = otp;
+        u.verification_otp_expires_at = expiresAt;
+        u.updated_at = new Date();
+        return { ...u };
+      }
+      return null;
+    }
+
+    const text = `
+      UPDATE users
+      SET
+        verification_otp = $1,
+        verification_otp_expires_at = $2,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $3
+      RETURNING id, name, email, role, email_verified, is_verified, verification_otp, verification_otp_expires_at;
+    `;
+    const res = await query(text, [otp, expiresAt, userId]);
+    return res.rows[0] || null;
+  }
+
+  /**
+   * Clear verification OTP.
+   */
+  static async clearVerificationOtp(userId) {
+    if (!userId || !isValidUuid(userId)) return null;
+
+    if (!isDatabaseAvailable()) {
+      const u = devMemoryStore.get(userId);
+      if (u) {
+        u.verification_otp = null;
+        u.verification_otp_expires_at = null;
+        u.updated_at = new Date();
+        return { ...u };
+      }
+      return null;
+    }
+
+    const text = `
+      UPDATE users
+      SET
+        verification_otp = NULL,
+        verification_otp_expires_at = NULL,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+      RETURNING id, name, email;
     `;
     const res = await query(text, [userId]);
     return res.rows[0] || null;

@@ -6,6 +6,7 @@ import { api } from '../services/api.js';
 import { Alert } from '../components/Alert.jsx';
 import { LoadingSpinner } from '../components/LoadingSpinner.jsx';
 import BottomNavigation from '../components/BottomNavigation.jsx';
+import OtpVerificationModal from '../components/OtpVerificationModal.jsx';
 
 export function ProfilePage() {
   const { user, login, logout, token } = useAuth();
@@ -16,6 +17,7 @@ export function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSendingVerification, setIsSendingVerification] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
   const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error', message: string }
   const [nameError, setNameError] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -28,7 +30,7 @@ export function ProfilePage() {
         const profile = await userService.getProfile();
         setName(profile.name || '');
         setEmail(profile.email || '');
-        setEmailVerified(Boolean(profile.email_verified));
+        setEmailVerified(Boolean(profile.email_verified || profile.is_verified));
       } catch (err) {
         setFeedback({
           type: 'error',
@@ -78,24 +80,38 @@ export function ProfilePage() {
     }
   };
 
-  const handleSendVerification = async () => {
+  const handleVerifyEmail = async () => {
     if (!email) return;
     setIsSendingVerification(true);
     setFeedback(null);
     try {
-      const res = await api.resendVerification(email);
-      setFeedback({
-        type: 'success',
-        message: res.message || 'Verification email sent! Please check your inbox.',
-      });
+      await api.sendVerificationOtp();
+      setShowOtpModal(true);
     } catch (err) {
       setFeedback({
         type: 'error',
-        message: err.message || 'Failed to send verification link. Please try again.',
+        message: err.message || 'Failed to send verification code. Please try again.',
       });
     } finally {
       setIsSendingVerification(false);
     }
+  };
+
+  const handleOtpSuccess = (updatedUser) => {
+    setShowOtpModal(false);
+    setEmailVerified(true);
+    if (user && token) {
+      login(token, {
+        ...user,
+        email_verified: true,
+        is_verified: true,
+        ...updatedUser,
+      });
+    }
+    setFeedback({
+      type: 'success',
+      message: 'Your email address has been verified successfully! Welcome to Daily Grace.',
+    });
   };
 
   const handleSignOut = () => {
@@ -150,7 +166,7 @@ export function ProfilePage() {
               </div>
               <h2 className="profile-user-name">{name || 'Child of God'}</h2>
               {emailVerified ? (
-                <span className="profile-verified-pill">Verified Account ✓</span>
+                <span className="profile-verified-pill">Verified Member ✓</span>
               ) : (
                 <span
                   style={{
@@ -200,7 +216,7 @@ export function ProfilePage() {
 
                 <button
                   type="button"
-                  onClick={handleSendVerification}
+                  onClick={handleVerifyEmail}
                   disabled={isSendingVerification}
                   style={{
                     alignSelf: 'flex-start',
@@ -215,7 +231,7 @@ export function ProfilePage() {
                     boxShadow: '0 2px 4px rgba(221, 107, 32, 0.2)',
                   }}
                 >
-                  {isSendingVerification ? 'Sending Link...' : 'Send Verification Link'}
+                  {isSendingVerification ? 'Sending Code...' : 'Verify Email'}
                 </button>
               </section>
             )}
@@ -383,6 +399,14 @@ export function ProfilePage() {
             </div>
           </div>
         )}
+
+        {/* OTP VERIFICATION MODAL */}
+        <OtpVerificationModal
+          isOpen={showOtpModal}
+          email={email}
+          onClose={() => setShowOtpModal(false)}
+          onSuccess={handleOtpSuccess}
+        />
 
         {/* 6. BOTTOM NAVIGATION */}
         <BottomNavigation activeTab="profile" />
