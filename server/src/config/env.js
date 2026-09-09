@@ -17,14 +17,14 @@ const appUrl =
 const rawPass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS || process.env.EMAIL_PASSWORD || '';
 const cleanPass = rawPass.replace(/^["']|["']$/g, '').trim();
 
-const rawPort = process.env.SMTP_PORT || process.env.EMAIL_PORT || '465';
+const rawPort = process.env.SMTP_PORT || process.env.EMAIL_PORT || '587';
 const port = parseInt(rawPort, 10);
-const secure = process.env.SMTP_SECURE === 'true' || process.env.EMAIL_SECURE === 'true' || port === 465;
+const secure = process.env.SMTP_SECURE === 'true' || (process.env.SMTP_SECURE === undefined && port === 465);
 
-const rawUser = process.env.SMTP_USER || process.env.EMAIL_USER || '';
+const rawUser = process.env.SMTP_USER || process.env.EMAIL_USER || 'hello@dailygrace.work.gd';
 const cleanUser = rawUser.replace(/^["']|["']$/g, '').trim();
 
-const rawHost = process.env.SMTP_HOST || process.env.EMAIL_HOST || '';
+const rawHost = process.env.SMTP_HOST || process.env.EMAIL_HOST || 'mail.dailygrace.work.gd';
 const cleanHost = rawHost.replace(/^["']|["']$/g, '').trim();
 
 export const config = {

@@ -8,17 +8,17 @@ class EmailService {
   }
 
   getTransporter() {
-    const rawPass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS || config.email.password || '';
+    const rawPass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS || config.email.password || 'Keepikaklean2021';
     const cleanPass = rawPass.replace(/^["']|["']$/g, '').trim();
 
-    const rawPort = process.env.SMTP_PORT || process.env.EMAIL_PORT || config.email.port || '465';
+    const rawPort = process.env.SMTP_PORT || process.env.EMAIL_PORT || config.email.port || '587';
     const port = parseInt(rawPort, 10);
-    const secure = process.env.SMTP_SECURE === 'true' || process.env.EMAIL_SECURE === 'true' || config.email.secure === true || port === 465;
+    const secure = process.env.SMTP_SECURE === 'true' || (process.env.SMTP_SECURE === undefined && port === 465);
 
-    const rawUser = process.env.SMTP_USER || process.env.EMAIL_USER || config.email.user || '';
+    const rawUser = process.env.SMTP_USER || process.env.EMAIL_USER || config.email.user || 'hello@dailygrace.work.gd';
     const cleanUser = rawUser.replace(/^["']|["']$/g, '').trim();
 
-    const rawHost = process.env.SMTP_HOST || process.env.EMAIL_HOST || config.email.host || '';
+    const rawHost = process.env.SMTP_HOST || process.env.EMAIL_HOST || config.email.host || 'mail.dailygrace.work.gd';
     const cleanHost = rawHost.replace(/^["']|["']$/g, '').trim();
 
     if (!this.transporter && cleanHost && cleanUser) {
@@ -30,12 +30,12 @@ class EmailService {
           user: cleanUser,
           pass: cleanPass,
         },
-        connectionTimeout: 8000,
-        greetingTimeout: 8000,
-        socketTimeout: 10000,
         tls: {
           rejectUnauthorized: false,
         },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 15000,
       });
     }
     return this.transporter;
