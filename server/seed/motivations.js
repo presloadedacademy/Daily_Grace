@@ -1,47 +1,44 @@
-/**
- * ============================================================================
- * DAILY GRACE — DEVELOPMENT SAMPLE DATA
- * ============================================================================
- * NOTICE: The records below are provided strictly for development and testing.
- * Authentic, manually researched Bible-based content will be provided and
- * imported by the project owner.
- * ============================================================================
- */
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-export const SAMPLE_MOTIVATIONS = [
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const jsonPath = path.join(__dirname, '../data/motivations.json');
+
+let loadedMotivations = [];
+try {
+  if (fs.existsSync(jsonPath)) {
+    loadedMotivations = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+  }
+} catch (e) {
+  console.warn('[Seed] Could not read motivations.json, using fallback sample:', e.message);
+}
+
+export const SAMPLE_MOTIVATIONS = loadedMotivations.length > 0 ? loadedMotivations : [
   {
-    title: 'Peace That Surpasses Understanding',
-    verse: 'And the peace of God, which surpasses all understanding, will guard your hearts and your minds in Christ Jesus.',
-    reference: 'Philippians 4:7',
-    reflection: 'When life feels uncertain and worries press in, God offers a calm that defies human logic. Take a deep breath today and entrust every anxiety into His steady hands.',
-    prayer: 'Lord, grant me Your supernatural peace today. Guard my mind against anxious thoughts and anchor my heart in Your presence. Amen.'
+    title: 'Peace Begins With God',
+    verse: 'Thou wilt keep him in perfect peace, whose mind is stayed on thee: because he trusteth in thee.',
+    reference: 'Isaiah 26:3',
+    reflection: 'Inner peace begins when our minds remain focused on God. Trusting Him gives our hearts stability even when life is uncertain.',
+    prayer: 'Lord, keep my mind stayed on You and fill me with perfect peace. Amen.',
+    day_number: 1
   },
   {
-    title: 'Renewed Morning by Morning',
-    verse: 'The steadfast love of the Lord never ceases; his mercies never come to an end; they are new every morning; great is your faithfulness.',
-    reference: 'Lamentations 3:22-23',
-    reflection: 'No matter what yesterday brought, today is bathed in brand new mercy. Step forward with fresh hope knowing that God\'s faithfulness is unwavering.',
-    prayer: 'Father, thank You for the gift of new mercy today. Wash away yesterday\'s regrets and fill me with fresh faith for this day. Amen.'
+    title: 'A Quiet Soul',
+    verse: 'My soul, wait thou only upon God; for my expectation is from him.',
+    reference: 'Psalm 62:5',
+    reflection: 'Our hearts become restless when we place our expectations in people or circumstances. True peace comes from waiting on God.',
+    prayer: 'Father, teach my soul to wait quietly upon You. Amen.',
+    day_number: 2
   },
   {
-    title: 'Strength in the Waiting',
-    verse: 'They who wait for the Lord shall renew their strength; they shall mount up with wings like eagles; they shall run and not be weary; they shall walk and not faint.',
-    reference: 'Isaiah 40:31',
-    reflection: 'Waiting on the Lord is never wasted time. In stillness and trust, your spirit is strengthened and prepared to soar above life\'s challenges.',
-    prayer: 'Lord, teach me to wait patiently for Your timing. Renew my energy and help me walk steadily in Your grace. Amen.'
-  },
-  {
-    title: 'A Lamp to Your Path',
-    verse: 'Your word is a lamp to my feet and a light to my path.',
-    reference: 'Psalm 119:105',
-    reflection: 'God does not always illuminate the entire journey ahead, but He faithfully provides enough light for the very next step. Trust His guidance today.',
-    prayer: 'Heavenly Father, guide my decisions and words today by the light of Your truth. Keep my feet from stumbling. Amen.'
-  },
-  {
-    title: 'Ever-Present Refuge',
+    title: 'God Is My Refuge',
     verse: 'God is our refuge and strength, a very present help in trouble.',
     reference: 'Psalm 46:1',
-    reflection: 'You do not have to carry your burdens alone. God is not distant; He is an ever-present sanctuary where you can find rest and courage.',
-    prayer: 'Lord God, You are my safe harbor. In every trial, remind me that You are right beside me, holding me secure. Amen.'
+    reflection: 'When life becomes overwhelming, God remains a safe place for the heart. Run to Him instead of allowing trouble to control your thoughts.',
+    prayer: 'Lord, be my refuge whenever my heart feels troubled. Amen.',
+    day_number: 3
   }
 ];
+

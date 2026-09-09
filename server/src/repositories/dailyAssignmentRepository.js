@@ -6,16 +6,21 @@ import { SAMPLE_MOTIVATIONS } from '../../seed/motivations.js';
 const devDailyAssignmentsStore = new Map(); // key: `${userId}:${assignedDate}`
 const devMotivationsStore = new Map();
 
-SAMPLE_MOTIVATIONS.forEach((item, index) => {
-  const id = `mot_${index + 1}`;
-  devMotivationsStore.set(id, {
-    id,
-    ...item,
-    status: 'published',
-    created_at: new Date(),
-    updated_at: new Date(),
+function initDevMotivationsStore() {
+  devMotivationsStore.clear();
+  SAMPLE_MOTIVATIONS.forEach((item, index) => {
+    const id = `mot_${index + 1}`;
+    devMotivationsStore.set(id, {
+      id,
+      ...item,
+      status: item.status || 'published',
+      day_number: item.day_number || index + 1,
+      created_at: new Date(),
+      updated_at: new Date(),
+    });
   });
-});
+}
+initDevMotivationsStore();
 
 export class DailyAssignmentRepository {
   /**
@@ -26,15 +31,7 @@ export class DailyAssignmentRepository {
 
     if (!isDatabaseAvailable()) {
       const key = `${userId}:${assignedDate}`;
-      let assignment = devDailyAssignmentsStore.get(key);
-      if (!assignment) {
-        for (const asg of devDailyAssignmentsStore.values()) {
-          if (asg.user_id === userId && (asg.assigned_date === assignedDate)) {
-            assignment = asg;
-            break;
-          }
-        }
-      }
+      const assignment = devDailyAssignmentsStore.get(key);
       if (!assignment) return null;
 
       const motivation = devMotivationsStore.get(assignment.motivation_id);
@@ -74,7 +71,7 @@ export class DailyAssignmentRepository {
         dm.completed_at
       FROM daily_motivations dm
       INNER JOIN motivations m ON dm.motivation_id = m.id
-      WHERE dm.user_id = $1 AND (dm.assigned_date = $2::DATE OR dm.assigned_date = CURRENT_DATE)
+      WHERE dm.user_id = $1 AND dm.assigned_date = $2::DATE
       ORDER BY dm.assigned_date DESC, dm.created_at DESC
       LIMIT 1;
     `;
@@ -125,7 +122,7 @@ export class DailyAssignmentRepository {
     const text = `
       UPDATE daily_motivations
       SET is_completed = TRUE, completed_at = CURRENT_TIMESTAMP
-      WHERE user_id = $1 AND (assigned_date = $2::DATE OR assigned_date = CURRENT_DATE)
+      WHERE user_id = $1 AND assigned_date = $2::DATE
       RETURNING id, user_id, motivation_id, assigned_date, cycle_number, is_completed, completed_at;
     `;
     let res = await query(text, [userId, assignedDate]);
@@ -229,7 +226,7 @@ export class DailyAssignmentRepository {
    * Atomically create a daily assignment for a user on a given date.
    * Guarantees concurrency safety using UNIQUE(user_id, assigned_date) and ON CONFLICT DO NOTHING.
    */
-  static async createDailyAssignment({ userId, motivationId, assignedDate, cycleNumber }) {
+  static async createDailyAssignment({ userId, motivationId, assignedDate, cycleNumber = 1 }) {
     if (!isDatabaseAvailable()) {
       const key = `${userId}:${assignedDate}`;
       if (!devDailyAssignmentsStore.has(key)) {
@@ -239,6 +236,8 @@ export class DailyAssignmentRepository {
           motivation_id: motivationId,
           assigned_date: assignedDate,
           cycle_number: cycleNumber,
+          is_completed: false,
+          completed_at: null,
           created_at: new Date(),
         };
         devDailyAssignmentsStore.set(key, assignment);
@@ -252,7 +251,7 @@ export class DailyAssignmentRepository {
       INSERT INTO daily_motivations (user_id, motivation_id, assigned_date, cycle_number)
       VALUES ($1, $2, $3, $4)
       ON CONFLICT (user_id, assigned_date) DO NOTHING
-      RETURNING id, user_id, motivation_id, assigned_date, cycle_number, created_at;
+      RETURNING id, user_id, motivation_id, assigned_date, cycle_number, is_completed, completed_at, created_at;
     `;
     const res = await query(text, [userId, motivationId, assignedDate, cycleNumber]);
     return res.rows[0] || null;
@@ -349,5 +348,7 @@ export class DailyAssignmentRepository {
 
   static _resetDevStore() {
     devDailyAssignmentsStore.clear();
+    initDevMotivationsStore();
   }
 }
+

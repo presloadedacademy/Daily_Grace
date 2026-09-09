@@ -5,6 +5,8 @@ import { AppError } from './authService.js';
 import { isValidUuid } from '../utils/cryptoUtils.js';
 import { config } from '../config/env.js';
 
+export const BASE_CALENDAR_DATE = '2026-09-08'; // Day 1: "Peace Begins With God"
+
 /**
  * Helper to compute the calendar date string (YYYY-MM-DD) in Africa/Lagos (WAT) timezone.
  */
@@ -19,6 +21,29 @@ export function getLagosDateString(customDate = null) {
   return formatter.format(new Date());
 }
 
+/**
+ * Compute the global target day_number purely based on the calendar date.
+ * September 8, 2026 = Day 1 ("Peace Begins With God")
+ * September 9, 2026 = Day 2 ("A Quiet Soul")
+ * Cycles cleanly across all total published motivations using modulo arithmetic.
+ * @param {string} dateStr YYYY-MM-DD
+ * @param {number} [totalCount] Total published motivations count
+ * @returns {number} 1-based day_number
+ */
+export function calculateGlobalDayNumber(dateStr, totalCount = null) {
+  const [by, bm, bd] = BASE_CALENDAR_DATE.split('-').map(Number);
+  const [ty, tm, td] = dateStr.split('-').map(Number);
+  const baseUtc = Date.UTC(by, bm - 1, bd);
+  const targetUtc = Date.UTC(ty, tm - 1, td);
+  const diffDays = Math.round((targetUtc - baseUtc) / (1000 * 60 * 60 * 24));
+
+  if (!totalCount || totalCount <= 0) {
+    return diffDays >= 0 ? diffDays + 1 : 1;
+  }
+
+  return (((diffDays % totalCount) + totalCount) % totalCount) + 1;
+}
+
 export class MotivationService {
   /**
    * Calculate updated streak based on last completed date and target date.
@@ -26,10 +51,10 @@ export class MotivationService {
    * @param {string} targetDateStr YYYY-MM-DD string
    */
   static calculateStreak(user, targetDateStr) {
-    const currentStreak = user.current_streak || 0;
-    const longestStreak = user.longest_streak || 0;
+    const currentStreak = user?.current_streak || 0;
+    const longestStreak = user?.longest_streak || 0;
 
-    if (!user.last_completed_date) {
+    if (!user?.last_completed_date) {
       const newStreak = 1;
       return {
         currentStreak: newStreak,
@@ -80,7 +105,9 @@ export class MotivationService {
   }
 
   /**
-   * Retrieve or atomically assign today's motivation for an authenticated user.
+   * Retrieve or atomically assign today's global calendar motivation for a user.
+   * Based strictly on current date in 'Africa/Lagos' timezone.
+   * Every user sees the exact same devotional on any given calendar date.
    * @param {string} userId UUID of authenticated user
    * @param {string} [customDate] Optional YYYY-MM-DD date string
    */
@@ -93,10 +120,33 @@ export class MotivationService {
     const currentStreak = user?.current_streak || 0;
     const longestStreak = user?.longest_streak || 0;
 
-    // Determine today's date in Africa/Lagos timezone (YYYY-MM-DD format)
+    // Determine target date in Africa/Lagos timezone (YYYY-MM-DD format)
     const today = getLagosDateString(customDate);
 
-    // Step 1: Check if user already received a motivation today
+    // Step 1: Check total published motivations
+    const totalPublished = await MotivationRepository.countTotalPublishedMotivations();
+    if (totalPublished === 0) {
+      throw new AppError(
+        'Your next Grace is being prepared. Please check back soon.',
+        404,
+        'NO_MOTIVATIONS_AVAILABLE'
+      );
+    }
+
+    // Step 2: Compute global target day_number strictly from calendar date
+    const targetDayNumber = calculateGlobalDayNumber(today, totalPublished);
+
+    // Step 3: Fetch that day's devotional from motivations
+    const motivation = await MotivationRepository.getMotivationForGlobalDay(targetDayNumber);
+    if (!motivation) {
+      throw new AppError(
+        'Your next Grace is being prepared. Please check back soon.',
+        404,
+        'NO_MOTIVATIONS_AVAILABLE'
+      );
+    }
+
+    // Step 4: Check if user already has an assignment for today's date
     const existing = await DailyAssignmentRepository.findAssignmentByUserAndDate(userId, today);
     if (existing) {
       return {
@@ -106,9 +156,9 @@ export class MotivationService {
         reference: existing.reference,
         reflection: existing.reflection,
         prayer: existing.prayer,
-        day_number: existing.day_number || null,
+        day_number: existing.day_number || targetDayNumber,
         assigned_date: existing.assigned_date,
-        cycle_number: existing.cycle_number,
+        cycle_number: existing.cycle_number || 1,
         is_completed: Boolean(existing.is_completed),
         completed: Boolean(existing.is_completed),
         completed_at: existing.completed_at || null,
@@ -117,63 +167,40 @@ export class MotivationService {
       };
     }
 
-    // Step 2: Determine user's current cycle number
-    let currentCycle = await DailyAssignmentRepository.getUserCurrentCycle(userId);
-
-    // Step 3: Find an unused motivation in the current cycle
-    let motivation = await DailyAssignmentRepository.findUnusedMotivationInCycle(userId, currentCycle);
-
-    // Step 4: If no unused motivation in this cycle, check if catalog is empty or if cycle is complete
-    if (!motivation) {
-      const totalPublished = await MotivationRepository.countTotalPublishedMotivations();
-      if (totalPublished === 0) {
-        throw new AppError(
-          'Your next Grace is being prepared. Please check back soon.',
-          404,
-          'NO_MOTIVATIONS_AVAILABLE'
-        );
-      }
-
-      // Cycle completion: Start the next cycle
-      currentCycle += 1;
-      motivation = await DailyAssignmentRepository.findUnusedMotivationInCycle(userId, currentCycle);
-
-      if (!motivation) {
-        throw new AppError(
-          'Your next Grace is being prepared. Please check back soon.',
-          404,
-          'NO_MOTIVATIONS_AVAILABLE'
-        );
-      }
-    }
-
-    // Step 5: Atomically create assignment with conflict protection
+    // Step 5: Atomically create assignment for today's date
     await DailyAssignmentRepository.createDailyAssignment({
       userId,
       motivationId: motivation.id,
       assignedDate: today,
-      cycleNumber: currentCycle,
+      cycleNumber: 1,
     });
 
     // Step 6: Fetch confirmed assignment (resolves concurrency / race conditions)
     const confirmed = await DailyAssignmentRepository.findAssignmentByUserAndDate(userId, today);
 
     return {
-      id: confirmed.id,
-      title: confirmed.title,
-      verse: confirmed.verse,
-      reference: confirmed.reference,
-      reflection: confirmed.reflection,
-      prayer: confirmed.prayer,
-      day_number: confirmed.day_number || null,
-      assigned_date: confirmed.assigned_date,
-      cycle_number: confirmed.cycle_number,
-      is_completed: Boolean(confirmed.is_completed),
-      completed: Boolean(confirmed.is_completed),
-      completed_at: confirmed.completed_at || null,
+      id: confirmed?.id || motivation.id,
+      title: confirmed?.title || motivation.title,
+      verse: confirmed?.verse || motivation.verse,
+      reference: confirmed?.reference || motivation.reference,
+      reflection: confirmed?.reflection || motivation.reflection,
+      prayer: confirmed?.prayer || motivation.prayer,
+      day_number: confirmed?.day_number || motivation.day_number || targetDayNumber,
+      assigned_date: confirmed?.assigned_date || today,
+      cycle_number: confirmed?.cycle_number || 1,
+      is_completed: Boolean(confirmed?.is_completed),
+      completed: Boolean(confirmed?.is_completed),
+      completed_at: confirmed?.completed_at || null,
       current_streak: currentStreak,
       longest_streak: longestStreak,
     };
+  }
+
+  /**
+   * Alias for getTodaysMotivation
+   */
+  static async getTodayMotivation(userId, customDate = null) {
+    return this.getTodaysMotivation(userId, customDate);
   }
 
   /**
@@ -220,4 +247,5 @@ export class MotivationService {
     };
   }
 }
+
 

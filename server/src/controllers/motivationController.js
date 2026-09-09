@@ -13,7 +13,12 @@ export class MotivationController {
       if (!userId) {
         return res.status(401).json({ success: false, code: 'UNAUTHORIZED', message: 'User authentication required.' });
       }
-      const motivation = await MotivationService.getTodaysMotivation(userId);
+      const customDate = req.query?.date || req.body?.date || null;
+      const motivation = await MotivationService.getTodaysMotivation(userId, customDate);
+
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
 
       res.status(200).json({
         success: true,
@@ -24,6 +29,7 @@ export class MotivationController {
       next(error);
     }
   }
+
 
   /**
    * POST /api/motivations/complete

@@ -6,17 +6,21 @@ import { DailyAssignmentRepository } from './dailyAssignmentRepository.js';
 // Development in-memory fallback stores when PostgreSQL is offline
 const devMotivationsStore = new Map();
 
-// Initialize in-memory store with development sample data (default status 'published')
-SAMPLE_MOTIVATIONS.forEach((item, index) => {
-  const id = `mot_${index + 1}`;
-  devMotivationsStore.set(id, {
-    id,
-    ...item,
-    status: 'published',
-    created_at: new Date(),
-    updated_at: new Date(),
+function initDevMotivationsStore() {
+  devMotivationsStore.clear();
+  SAMPLE_MOTIVATIONS.forEach((item, index) => {
+    const id = `mot_${index + 1}`;
+    devMotivationsStore.set(id, {
+      id,
+      ...item,
+      status: item.status || 'published',
+      day_number: item.day_number || index + 1,
+      created_at: new Date(),
+      updated_at: new Date(),
+    });
   });
-});
+}
+initDevMotivationsStore();
 
 export class MotivationRepository {
   /**
@@ -48,7 +52,63 @@ export class MotivationRepository {
     return DailyAssignmentRepository.findUnusedMotivationInCycle(userId, cycleNumber);
   }
 
+  /**
+   * Find a published motivation by day_number.
+   */
+  static async findByDayNumber(dayNumber) {
+    if (!dayNumber || dayNumber < 1) return null;
 
+    if (!isDatabaseAvailable()) {
+      for (const m of devMotivationsStore.values()) {
+        if ((m.status || 'published') === 'published' && m.day_number === dayNumber) {
+          return { ...m };
+        }
+      }
+      return null;
+    }
+
+    const text = `
+      SELECT id, title, verse, reference, reflection, prayer, status, day_number, created_at, updated_at
+      FROM motivations
+      WHERE status = 'published' AND day_number = $1
+      ORDER BY created_at ASC
+      LIMIT 1;
+    `;
+    const res = await query(text, [dayNumber]);
+    return res.rows[0] || null;
+  }
+
+  /**
+   * Fetch the global calendar devotional for a given target day_number.
+   * Looks up by exact day_number first; falls back to modulo offset among all published motivations.
+   */
+  static async getMotivationForGlobalDay(targetDayNumber) {
+    // 1. Try finding exact day_number
+    const exact = await this.findByDayNumber(targetDayNumber);
+    if (exact) return exact;
+
+    const total = await this.countTotalPublishedMotivations();
+    if (total === 0) return null;
+
+    const offset = ((targetDayNumber - 1) % total + total) % total;
+
+    if (!isDatabaseAvailable()) {
+      const published = Array.from(devMotivationsStore.values())
+        .filter((m) => (m.status || 'published') === 'published')
+        .sort((a, b) => (a.day_number || 999999) - (b.day_number || 999999));
+      return published[offset] ? { ...published[offset] } : null;
+    }
+
+    const text = `
+      SELECT id, title, verse, reference, reflection, prayer, status, day_number, created_at, updated_at
+      FROM motivations
+      WHERE status = 'published'
+      ORDER BY COALESCE(day_number, 999999) ASC, created_at ASC, id ASC
+      LIMIT 1 OFFSET $1;
+    `;
+    const res = await query(text, [offset]);
+    return res.rows[0] || null;
+  }
 
   /**
    * Find a motivation by primary key ID.
@@ -71,6 +131,7 @@ export class MotivationRepository {
     const res = await query(text, [id]);
     return res.rows[0] || null;
   }
+
 
 
   /**
@@ -473,7 +534,9 @@ export class MotivationRepository {
   }
 
   static _resetDevStore() {
+    initDevMotivationsStore();
     DailyAssignmentRepository._resetDevStore();
   }
 }
+
 
