@@ -193,17 +193,13 @@ export function TodayPage() {
 
             {/* 3. DATE SECTION */}
             <section className="today-date-section">
-              <div className="today-date-left">
-                <span className="today-date-text">{getFormattedDate()}</span>
-                <span className="today-date-tag">
-                  {motivation.day_number ? `DAY ${motivation.day_number} DEVOTIONAL` : "TODAY'S DEVOTIONAL"}
-                </span>
-              </div>
+              <span className="today-date-text">{getFormattedDate()}</span>
               <div className="today-streak-pill" title={`${currentStreak} Day Devotional Streak`}>
                 <span className="streak-icon">🔥</span>
                 <span className="streak-count">{currentStreak}</span>
               </div>
             </section>
+
 
             {/* 4. VERSE OF THE DAY CARD (WITH SHARE BUTTON) */}
             <VerseCard 
