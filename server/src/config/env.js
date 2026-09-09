@@ -14,6 +14,19 @@ const appUrl =
   process.env.CLIENT_URL ||
   (isProd ? 'https://dailygrace.work.gd' : 'http://localhost:5173');
 
+const rawPass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS || process.env.EMAIL_PASSWORD || '';
+const cleanPass = rawPass.replace(/^["']|["']$/g, '').trim();
+
+const rawPort = process.env.SMTP_PORT || process.env.EMAIL_PORT || '465';
+const port = parseInt(rawPort, 10);
+const secure = process.env.SMTP_SECURE === 'true' || process.env.EMAIL_SECURE === 'true' || port === 465;
+
+const rawUser = process.env.SMTP_USER || process.env.EMAIL_USER || '';
+const cleanUser = rawUser.replace(/^["']|["']$/g, '').trim();
+
+const rawHost = process.env.SMTP_HOST || process.env.EMAIL_HOST || '';
+const cleanHost = rawHost.replace(/^["']|["']$/g, '').trim();
+
 export const config = {
   port: parseInt(process.env.PORT || '5000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -27,11 +40,11 @@ export const config = {
   reminderTimezone: process.env.REMINDER_TIMEZONE || process.env.TIMEZONE || 'Africa/Lagos',
   enableReminderScheduler: process.env.ENABLE_REMINDER_SCHEDULER === 'true',
   email: {
-    host: process.env.SMTP_HOST || process.env.EMAIL_HOST || '',
-    port: parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '465', 10),
-    secure: (process.env.SMTP_SECURE || process.env.EMAIL_SECURE) === 'true' || (process.env.SMTP_PORT || process.env.EMAIL_PORT) === '465',
-    user: process.env.SMTP_USER || process.env.EMAIL_USER || '',
-    password: process.env.SMTP_PASSWORD || process.env.EMAIL_PASSWORD || '',
+    host: cleanHost,
+    port,
+    secure,
+    user: cleanUser,
+    password: cleanPass,
     from: process.env.SMTP_FROM || process.env.EMAIL_FROM || '"DAILY GRACE" <_mainaccount@dailygrace.work.gd>',
   },
   vapid: {

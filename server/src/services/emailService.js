@@ -8,18 +8,31 @@ class EmailService {
   }
 
   getTransporter() {
-    if (!this.transporter && config.email.host && config.email.user) {
+    const rawPass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS || config.email.password || '';
+    const cleanPass = rawPass.replace(/^["']|["']$/g, '').trim();
+
+    const rawPort = process.env.SMTP_PORT || process.env.EMAIL_PORT || config.email.port || '465';
+    const port = parseInt(rawPort, 10);
+    const secure = process.env.SMTP_SECURE === 'true' || process.env.EMAIL_SECURE === 'true' || config.email.secure === true || port === 465;
+
+    const rawUser = process.env.SMTP_USER || process.env.EMAIL_USER || config.email.user || '';
+    const cleanUser = rawUser.replace(/^["']|["']$/g, '').trim();
+
+    const rawHost = process.env.SMTP_HOST || process.env.EMAIL_HOST || config.email.host || '';
+    const cleanHost = rawHost.replace(/^["']|["']$/g, '').trim();
+
+    if (!this.transporter && cleanHost && cleanUser) {
       this.transporter = nodemailer.createTransport({
-        host: config.email.host,
-        port: config.email.port,
-        secure: config.email.secure,
+        host: cleanHost,
+        port,
+        secure,
         auth: {
-          user: config.email.user,
-          pass: config.email.password,
+          user: cleanUser,
+          pass: cleanPass,
         },
-        connectionTimeout: 5000,
-        greetingTimeout: 5000,
-        socketTimeout: 7000,
+        connectionTimeout: 8000,
+        greetingTimeout: 8000,
+        socketTimeout: 10000,
         tls: {
           rejectUnauthorized: false,
         },
@@ -397,9 +410,9 @@ class EmailService {
           html: htmlContent,
         });
         return { success: true, mode: 'smtp' };
-      } catch (error) {
-        console.error('[EmailService Error] Failed to send verification OTP via SMTP:', error.message);
-        throw new Error("We couldn't send the verification code email right now. Please try again.");
+      } catch (err) {
+        console.error('[EmailService] SMTP Dispatch Failed:', err.message, err.code, err.response);
+        throw new Error(`SMTP Dispatch Failed: ${err.message || 'Unknown error'}`);
       }
     } else {
       console.log('\n================== [DAILY GRACE OTP VERIFICATION EMAIL] ==================');
