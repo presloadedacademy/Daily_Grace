@@ -38,6 +38,14 @@ export class MotivationRepository {
   }
 
   /**
+   * Update the assigned motivation for a user on a given date (Auto-Correction).
+   */
+  static async updateAssignmentMotivation(userId, assignedDate, motivationId) {
+    return DailyAssignmentRepository.updateAssignmentMotivation(userId, assignedDate, motivationId);
+  }
+
+
+  /**
    * Get the current cycle number for a user.
    */
   static async getUserCurrentCycle(userId) {

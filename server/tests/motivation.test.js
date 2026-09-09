@@ -2,9 +2,11 @@ import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { MotivationService, calculateGlobalDayNumber } from '../src/services/motivationService.js';
 import { MotivationRepository } from '../src/repositories/motivationRepository.js';
+import { DailyAssignmentRepository } from '../src/repositories/dailyAssignmentRepository.js';
 import { generateUuid } from '../src/utils/cryptoUtils.js';
 
 describe('DAILY GRACE — Global Calendar Motivation Engine Tests', () => {
+
   beforeEach(() => {
     MotivationRepository._resetDevStore();
   });
@@ -149,6 +151,38 @@ describe('DAILY GRACE — Global Calendar Motivation Engine Tests', () => {
       assert.equal(r.title, 'A Quiet Soul');
     }
   });
+
+  /**
+   * TEST 8 — Auto-Correction / Auto-Alignment of Stale Assignments
+   */
+  it('Test 8: Existing assignment created under old logic auto-corrects to global calendar day', async () => {
+    const userId = generateUuid();
+    const date = '2026-09-09';
+
+    // Simulate stale assignment in DB with Day 1 ("Peace Begins With God") on Sept 9
+    const day1Mot = await MotivationRepository.findByDayNumber(1);
+    await DailyAssignmentRepository.createDailyAssignment({
+      userId,
+      motivationId: day1Mot.id,
+      assignedDate: date,
+      cycleNumber: 1,
+    });
+
+    const preCheck = await DailyAssignmentRepository.findAssignmentByUserAndDate(userId, date);
+    assert.equal(preCheck.day_number, 1);
+    assert.equal(preCheck.title, 'Peace Begins With God');
+
+    // Calling getTodaysMotivation must auto-correct and return Day 2 ("A Quiet Soul")
+    const result = await MotivationService.getTodaysMotivation(userId, date);
+    assert.equal(result.day_number, 2);
+    assert.equal(result.title, 'A Quiet Soul');
+
+    // Confirm the database row is also updated
+    const postCheck = await DailyAssignmentRepository.findAssignmentByUserAndDate(userId, date);
+    assert.equal(postCheck.day_number, 2);
+    assert.equal(postCheck.title, 'A Quiet Soul');
+  });
 });
+
 
 

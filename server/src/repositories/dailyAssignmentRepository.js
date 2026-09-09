@@ -147,9 +147,38 @@ export class DailyAssignmentRepository {
   }
 
   /**
+   * Update the assigned motivation for a user on a given date (Auto-Correction / Auto-Alignment).
+   */
+  static async updateAssignmentMotivation(userId, assignedDate, motivationId) {
+    if (!userId || !motivationId) return null;
+
+    if (!isDatabaseAvailable()) {
+      const key = `${userId}:${assignedDate}`;
+      const assignment = devDailyAssignmentsStore.get(key);
+      if (assignment) {
+        assignment.motivation_id = motivationId;
+        return { ...assignment };
+      }
+      return null;
+    }
+
+    if (!isValidUuid(userId) || !isValidUuid(motivationId)) return null;
+
+    const text = `
+      UPDATE daily_motivations
+      SET motivation_id = $3
+      WHERE user_id = $1 AND assigned_date = $2::DATE
+      RETURNING id, user_id, motivation_id, assigned_date, cycle_number, is_completed, completed_at;
+    `;
+    const res = await query(text, [userId, assignedDate, motivationId]);
+    return res.rows[0] ? { ...res.rows[0], is_completed: Boolean(res.rows[0].is_completed) } : null;
+  }
+
+  /**
    * Get the current cycle number for a user.
    */
   static async getUserCurrentCycle(userId) {
+
     if (!isDatabaseAvailable()) {
       let maxCycle = 1;
       for (const assignment of devDailyAssignmentsStore.values()) {

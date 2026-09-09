@@ -149,6 +149,29 @@ export class MotivationService {
     // Step 4: Check if user already has an assignment for today's date
     const existing = await DailyAssignmentRepository.findAssignmentByUserAndDate(userId, today);
     if (existing) {
+      // Auto-Correction / Auto-Alignment Check:
+      // If assignment does not match today's target global day number (e.g. created under old logic)
+      if (existing.day_number !== targetDayNumber && existing.id !== motivation.id) {
+        await DailyAssignmentRepository.updateAssignmentMotivation(userId, today, motivation.id);
+        const corrected = await DailyAssignmentRepository.findAssignmentByUserAndDate(userId, today);
+        return {
+          id: corrected?.id || motivation.id,
+          title: corrected?.title || motivation.title,
+          verse: corrected?.verse || motivation.verse,
+          reference: corrected?.reference || motivation.reference,
+          reflection: corrected?.reflection || motivation.reflection,
+          prayer: corrected?.prayer || motivation.prayer,
+          day_number: corrected?.day_number || motivation.day_number || targetDayNumber,
+          assigned_date: corrected?.assigned_date || today,
+          cycle_number: corrected?.cycle_number || 1,
+          is_completed: Boolean(corrected?.is_completed ?? existing.is_completed),
+          completed: Boolean(corrected?.is_completed ?? existing.is_completed),
+          completed_at: corrected?.completed_at || existing.completed_at || null,
+          current_streak: currentStreak,
+          longest_streak: longestStreak,
+        };
+      }
+
       return {
         id: existing.id,
         title: existing.title,
@@ -166,6 +189,7 @@ export class MotivationService {
         longest_streak: longestStreak,
       };
     }
+
 
     // Step 5: Atomically create assignment for today's date
     await DailyAssignmentRepository.createDailyAssignment({
