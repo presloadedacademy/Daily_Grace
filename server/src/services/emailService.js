@@ -11,14 +11,14 @@ class EmailService {
     const rawPass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS || config.email.password || 'Keepikaklean2021';
     const cleanPass = rawPass.replace(/^["']|["']$/g, '').trim();
 
-    const rawPort = process.env.SMTP_PORT || process.env.EMAIL_PORT || config.email.port || '587';
+    const rawPort = process.env.SMTP_PORT || process.env.EMAIL_PORT || config.email.port || '465';
     const port = parseInt(rawPort, 10);
     const secure = process.env.SMTP_SECURE === 'true' || (process.env.SMTP_SECURE === undefined && port === 465);
 
     const rawUser = process.env.SMTP_USER || process.env.EMAIL_USER || config.email.user || 'hello@dailygrace.work.gd';
     const cleanUser = rawUser.replace(/^["']|["']$/g, '').trim();
 
-    const rawHost = process.env.SMTP_HOST || process.env.EMAIL_HOST || config.email.host || 'mail.dailygrace.work.gd';
+    const rawHost = process.env.SMTP_HOST || process.env.EMAIL_HOST || config.email.host || 'smtp.gmail.com';
     const cleanHost = rawHost.replace(/^["']|["']$/g, '').trim();
 
     if (!this.transporter && cleanHost && cleanUser) {
@@ -401,7 +401,7 @@ class EmailService {
 
     const transporter = this.getTransporter();
     if (transporter) {
-      console.log(`[SMTP] Sending OTP to ${to} using host: ${process.env.SMTP_HOST || config.email.host || 'mail.dailygrace.work.gd'}, port: ${process.env.SMTP_PORT || config.email.port || '587'}, user: ${process.env.SMTP_USER || config.email.user || 'hello@dailygrace.work.gd'}`);
+      console.log(`[SMTP] Sending OTP to ${to} using host: ${process.env.SMTP_HOST || config.email.host || 'smtp.gmail.com'}, port: ${process.env.SMTP_PORT || config.email.port || '465'}, user: ${process.env.SMTP_USER || config.email.user || 'hello@dailygrace.work.gd'}`);
       try {
         const result = await transporter.sendMail({
           from: config.email.from,
