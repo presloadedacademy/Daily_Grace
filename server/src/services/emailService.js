@@ -1,6 +1,9 @@
 import nodemailer from 'nodemailer';
 import jwt from 'jsonwebtoken';
+import { Resend } from 'resend';
 import { config } from '../config/env.js';
+
+const resend = new Resend(process.env.RESEND_API_KEY || config.resendApiKey || '');
 
 class EmailService {
   constructor() {
@@ -297,140 +300,54 @@ class EmailService {
    * Supports both object ({ to, name, otp }) and positional (email, name, otp) arguments.
    */
   async sendVerificationOtpEmail(arg1, arg2, arg3) {
-    let to, name, otp;
+    let toEmail, name, otp;
     if (typeof arg1 === 'object' && arg1 !== null) {
-      to = arg1.to || arg1.email;
+      toEmail = arg1.to || arg1.email;
       name = arg1.name || 'Friend';
       otp = arg1.otp || arg1.code;
-    } else {
-      to = arg1;
+    } else if (arg3 !== undefined) {
+      toEmail = arg1;
       name = arg2 || 'Friend';
       otp = arg3;
-    }
-
-    const subject = 'Your Daily Grace verification code';
-
-    const textContent = `DAILY GRACE\n\nHello ${name},\n\nYour 6-digit verification code is:\n\n${otp}\n\nThis verification code expires in 10 minutes.\n\nIf you did not request this code, please disregard this message.\n\nOne Scripture. One Reflection. One Prayer.\n\nDAILY GRACE`;
-
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${subject}</title>
-      </head>
-      <body style="margin: 0; padding: 0; background-color: #F6F7F2; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #252525; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
-        <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F6F7F2; padding: 36px 16px;">
-          <tr>
-            <td align="center">
-              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 560px; background-color: #FFFFFF; border-radius: 8px; overflow: hidden; border: 1px solid #E6E8E0; box-shadow: 0 4px 16px rgba(0,0,0,0.04); margin: 0 auto;">
-                
-                <!-- Brand Header -->
-                <tr>
-                  <td align="center" style="padding: 36px 32px 24px 32px; border-bottom: 1px solid #F0F2EB; background-color: #FAFAF8;">
-                    <h1 style="color: #354F42; font-size: 24px; font-weight: 700; margin: 0 0 6px 0; letter-spacing: 2.5px;">DAILY GRACE</h1>
-                    <p style="color: #B8A46A; font-size: 13px; margin: 0; font-style: italic; letter-spacing: 0.5px;">One Scripture. One Reflection. One Prayer.</p>
-                  </td>
-                </tr>
-
-                <!-- Content Body -->
-                <tr>
-                  <td style="padding: 36px 32px;">
-                    <p style="font-size: 18px; color: #354F42; font-weight: 600; margin: 0 0 14px 0;">
-                      Hello ${name},
-                    </p>
-                    <p style="font-size: 15px; line-height: 1.6; color: #333333; margin: 0 0 24px 0;">
-                      Please enter the verification code below in your Daily Grace app to confirm your email address and verify your account.
-                    </p>
-
-                    <!-- Large 6-Digit OTP Code Display -->
-                    <table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 28px auto; width: 100%;">
-                      <tr>
-                        <td align="center">
-                          <div style="display: inline-block; background-color: #F6F7F2; border: 2px solid #E6E8E0; border-radius: 8px; padding: 18px 36px; text-align: center;">
-                            <span style="font-family: 'Courier New', Courier, monospace, sans-serif; font-size: 38px; font-weight: 700; letter-spacing: 10px; color: #354F42; line-height: 1;">
-                              ${otp}
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    </table>
-
-                    <!-- Expiry Notice -->
-                    <div style="background-color: #FFFDF5; border-left: 3px solid #D9A441; border-radius: 0 4px 4px 0; padding: 12px 16px; margin: 24px 0;">
-                      <p style="font-size: 13px; color: #8A6D1C; margin: 0; line-height: 1.5;">
-                        ⏱ <strong>Notice:</strong> This verification code expires in <strong>10 minutes</strong>.
-                      </p>
-                    </div>
-
-                    <p style="font-size: 13px; line-height: 1.5; color: #888888; margin: 24px 0 0 0; text-align: center;">
-                      If you did not request this verification code, you can safely ignore this email.
-                    </p>
-
-                    <!-- Tagline Footer in Body -->
-                    <div style="border-top: 1px solid #F0F2EB; padding-top: 24px; margin-top: 28px; text-align: center;">
-                      <p style="font-size: 13px; color: #B8A46A; line-height: 1.6; margin: 0; font-weight: 500;">
-                        One Scripture.<br/>
-                        One Reflection.<br/>
-                        One Prayer.
-                      </p>
-                      <p style="font-size: 14px; font-weight: 700; color: #354F42; margin: 10px 0 0 0; letter-spacing: 1.5px;">
-                        DAILY GRACE
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-
-                <!-- Footer -->
-                <tr>
-                  <td align="center" style="padding: 16px 32px; background-color: #FBFBFA; border-top: 1px solid #F0F2EB;">
-                    <p style="font-size: 11px; color: #999999; margin: 0;">
-                      &copy; ${new Date().getFullYear()} Daily Grace. All rights reserved.
-                    </p>
-                  </td>
-                </tr>
-
-              </table>
-            </td>
-          </tr>
-        </table>
-      </body>
-      </html>
-    `;
-
-    const transporter = this.getTransporter();
-    if (transporter) {
-      console.log(`[SMTP] Sending OTP to ${to} using host: ${process.env.SMTP_HOST || config.email.host || 'smtp.gmail.com'}, port: ${process.env.SMTP_PORT || config.email.port || '587'}, user: ${process.env.SMTP_USER || config.email.user || 'admindailygrace@gmail.com'}`);
-      try {
-        const result = await transporter.sendMail({
-          from: config.email.from,
-          to,
-          subject,
-          text: textContent,
-          html: htmlContent,
-        });
-        console.log('[SMTP Success] Response:', JSON.stringify(result));
-        return { success: true, mode: 'smtp', result };
-      } catch (err) {
-        console.error('[SMTP Error] Full failure details:', {
-          message: err.message,
-          code: err.code,
-          command: err.command,
-          response: err.response,
-          responseCode: err.responseCode,
-          stack: err.stack,
-        });
-        throw err;
-      }
     } else {
-      console.log('\n================== [DAILY GRACE OTP VERIFICATION EMAIL] ==================');
-      console.log(`To: ${to} (${name})`);
-      console.log(`Subject: ${subject}`);
-      console.log(`6-Digit Verification Code: \x1b[32m\x1b[1m${otp}\x1b[0m (Expires in 10 minutes)`);
-      console.log('=========================================================================\n');
-      return { success: true, mode: 'development', otp };
+      toEmail = arg1;
+      name = 'Friend';
+      otp = arg2;
     }
+
+    const fromEmail = process.env.RESEND_FROM || config.resendFrom || 'Daily Grace <onboarding@resend.dev>';
+
+    if (process.env.NODE_ENV === 'test') {
+      return { success: true, mode: 'test', otp };
+    }
+
+    // Ensure recipient is dynamically taken from the argument
+    const targetEmail = String(toEmail).trim().toLowerCase();
+    console.log(`[EmailService] Dispatching OTP via Resend API to: ${targetEmail}`);
+
+    const { data, error } = await resend.emails.send({
+      from: fromEmail,
+      to: [targetEmail],
+      subject: 'Your Daily Grace Verification Code',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; border: 1px solid #eaeaea; border-radius: 12px;">
+          <h2 style="color: #2D3748; text-align: center;">Verify Your Daily Grace Account</h2>
+          <p style="color: #4A5568; font-size: 16px;">Use the following 6-digit code to complete your email verification:</p>
+          <div style="text-align: center; margin: 32px 0;">
+            <span style="display: inline-block; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #b48135; background: #faf5eb; padding: 12px 24px; border-radius: 8px; border: 1px dashed #d4af37;">${otp}</span>
+          </div>
+          <p style="color: #718096; font-size: 14px; text-align: center;">This code will expire in 15 minutes.</p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error('[Resend API Error]', error);
+      throw new Error(error.message);
+    }
+
+    console.log('[Resend API Success]', data);
+    return { success: true, mode: 'resend', data };
   }
 
   /**
