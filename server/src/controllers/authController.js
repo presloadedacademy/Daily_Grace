@@ -123,4 +123,35 @@ export class AuthController {
     }
   }
 
+  /**
+   * POST /api/auth/test-smtp (Protected)
+   * Diagnostic endpoint to test SMTP email dispatch and return live server response or error stack.
+   */
+  static async testSmtp(req, res) {
+    try {
+      const user = await AuthService.getMe(req.user.userId);
+      const targetEmail = req.body?.email || user.email;
+      const testOtp = req.body?.otp || '123456';
+
+      console.log(`[Diagnostic] Triggering test SMTP dispatch for user ${user.id} (${targetEmail})...`);
+      const result = await emailService.sendVerificationOtpEmail(targetEmail, user.name || 'Friend', testOtp);
+
+      res.status(200).json({
+        success: true,
+        message: `Test email dispatched to ${targetEmail}`,
+        result,
+      });
+    } catch (error) {
+      console.error('[Diagnostic SMTP Error]:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message,
+        code: error.code || null,
+        command: error.command || null,
+        response: error.response || null,
+        responseCode: error.responseCode || null,
+        stack: error.stack || null,
+      });
+    }
+  }
 }

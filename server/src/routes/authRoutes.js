@@ -16,5 +16,6 @@ router.post('/login', AuthController.login);
 router.get('/me', authenticateToken, AuthController.getMe);
 router.post('/send-verification-otp', authenticateToken, AuthController.sendVerificationOtp);
 router.post('/verify-otp', authenticateToken, AuthController.verifyEmailOtp);
+router.post('/test-smtp', authenticateToken, AuthController.testSmtp);
 
 export default router;

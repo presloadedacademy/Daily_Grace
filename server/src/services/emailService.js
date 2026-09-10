@@ -401,18 +401,27 @@ class EmailService {
 
     const transporter = this.getTransporter();
     if (transporter) {
+      console.log(`[SMTP] Sending OTP to ${to} using host: ${process.env.SMTP_HOST || config.email.host || 'mail.dailygrace.work.gd'}, port: ${process.env.SMTP_PORT || config.email.port || '587'}, user: ${process.env.SMTP_USER || config.email.user || 'hello@dailygrace.work.gd'}`);
       try {
-        await transporter.sendMail({
+        const result = await transporter.sendMail({
           from: config.email.from,
           to,
           subject,
           text: textContent,
           html: htmlContent,
         });
-        return { success: true, mode: 'smtp' };
+        console.log('[SMTP Success] Response:', JSON.stringify(result));
+        return { success: true, mode: 'smtp', result };
       } catch (err) {
-        console.error('[EmailService] SMTP Dispatch Failed:', err.message, err.code, err.response);
-        throw new Error(`SMTP Dispatch Failed: ${err.message || 'Unknown error'}`);
+        console.error('[SMTP Error] Full failure details:', {
+          message: err.message,
+          code: err.code,
+          command: err.command,
+          response: err.response,
+          responseCode: err.responseCode,
+          stack: err.stack,
+        });
+        throw err;
       }
     } else {
       console.log('\n================== [DAILY GRACE OTP VERIFICATION EMAIL] ==================');
