@@ -42,7 +42,7 @@ export default function OtpVerificationModal({
           if (!isMounted) return;
           setIsSendingInitial(false);
           setStatusMessage('Code sent!');
-          setCountdown(30);
+          setCountdown(60);
           setError(null);
         })
         .catch((err) => {
@@ -65,7 +65,7 @@ export default function OtpVerificationModal({
     }
   }, [isModalOpen]);
 
-  // 30-second countdown timer
+  // 60-second countdown timer
   useEffect(() => {
     if (!isModalOpen || countdown <= 0) return;
 
@@ -192,7 +192,7 @@ export default function OtpVerificationModal({
     try {
       await api.sendVerificationOtp();
       setStatusMessage('Code sent!');
-      setCountdown(30);
+      setCountdown(60);
       setDigits(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
     } catch (err) {
@@ -202,7 +202,7 @@ export default function OtpVerificationModal({
     }
   };
 
-  const formattedTimer = `00:${String(countdown).padStart(2, '0')}`;
+  const formattedTimer = `${String(Math.floor(countdown / 60)).padStart(2, '0')}:${String(countdown % 60).padStart(2, '0')}`;
   const isComplete = digits.join('').length === 6 && !digits.includes('');
 
   return (
