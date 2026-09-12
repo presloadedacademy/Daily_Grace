@@ -316,6 +316,7 @@ class EmailService {
     }
 
     const fromEmail = process.env.RESEND_FROM || config.resendFrom || 'Daily Grace <onboarding@resend.dev>';
+    const replyToEmail = process.env.REPLY_TO_EMAIL || config.replyTo || 'admindailygrace@gmail.com';
 
     if (process.env.NODE_ENV === 'test') {
       return { success: true, mode: 'test', otp };
@@ -328,6 +329,7 @@ class EmailService {
     const { data, error } = await resend.emails.send({
       from: fromEmail,
       to: [targetEmail],
+      reply_to: replyToEmail,
       subject: 'Your Daily Grace Verification Code',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; border: 1px solid #eaeaea; border-radius: 12px;">
@@ -506,6 +508,7 @@ class EmailService {
     }
 
     const fromEmail = process.env.RESEND_FROM || config.resendFrom || 'Daily Grace <onboarding@resend.dev>';
+    const replyToEmail = process.env.REPLY_TO_EMAIL || config.replyTo || 'admindailygrace@gmail.com';
     const targetEmail = String(to).trim().toLowerCase();
     const apiKey = process.env.RESEND_API_KEY || config.resendApiKey;
 
@@ -514,6 +517,7 @@ class EmailService {
         const { data, error } = await resend.emails.send({
           from: fromEmail,
           to: [targetEmail],
+          reply_to: replyToEmail,
           subject,
           text: textContent,
           html: htmlContent,

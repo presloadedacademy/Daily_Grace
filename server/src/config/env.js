@@ -50,6 +50,7 @@ export const config = {
   },
   resendApiKey: process.env.RESEND_API_KEY || '',
   resendFrom: process.env.RESEND_FROM || 'Daily Grace <onboarding@resend.dev>',
+  replyTo: process.env.REPLY_TO_EMAIL || 'admindailygrace@gmail.com',
   vapid: {
     publicKey: process.env.VAPID_PUBLIC_KEY || 'BDPaXy6CzbKkGGr7WEe5iCrr50ELCFxP6_WAt5jnlSNWIHWlTfnv-EmgDNKky37BAVpoR8dM8-t446w1HfOtnro',
     privateKey: process.env.VAPID_PRIVATE_KEY || 'isHFMQWZd53GZPv0vB76itBE7k_R28iZx8I21epvKfw',
