@@ -38,6 +38,8 @@ export class ReminderService {
       }
 
       try {
+        console.log('[ReminderScheduler] Sending morning devotion to: ' + user.email);
+
         // Fetch or assign the EXACT daily motivation for this user on this date
         let motivation = null;
         try {

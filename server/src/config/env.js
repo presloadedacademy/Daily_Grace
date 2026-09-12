@@ -37,6 +37,7 @@ export const config = {
   clientUrl: appUrl,
   serverUrl,
   dailyReminderTime: process.env.DAILY_REMINDER_TIME || '05:00',
+  reminderCronSchedule: process.env.REMINDER_CRON_SCHEDULE || '0 5 * * *',
   reminderTimezone: process.env.REMINDER_TIMEZONE || process.env.TIMEZONE || 'Africa/Lagos',
   enableReminderScheduler: process.env.ENABLE_REMINDER_SCHEDULER === 'true',
   email: {

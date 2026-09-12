@@ -1,9 +1,30 @@
 import { UserService } from '../services/userService.js';
 import { MotivationService } from '../services/motivationService.js';
+import { ReminderService } from '../services/reminderService.js';
 import { emailService } from '../services/emailService.js';
 import { AppError } from '../services/authService.js';
 
 export class ReminderController {
+  /**
+   * GET or POST /api/reminders/trigger-daily
+   * Triggers the daily 5:00 AM devotions dispatcher.
+   */
+  static async triggerDailyReminders(req, res, next) {
+    try {
+      const customDate = req.query?.date || req.body?.date || null;
+      console.log('[ReminderScheduler] Triggering 5 AM daily devotions dispatcher...');
+      const result = await ReminderService.processDailyReminders(customDate);
+      return res.status(200).json({
+        success: true,
+        message: 'Daily 5 AM devotions triggered successfully',
+        data: result,
+      });
+    } catch (error) {
+      console.error('[ReminderController Error] Failed to trigger daily reminders:', error);
+      next(error);
+    }
+  }
+
   /**
    * GET /api/reminders
    * Get current authenticated user's reminder settings.

@@ -4,7 +4,11 @@ import { authenticateToken } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
-// All reminder endpoints require valid JWT authentication
+// Public & Cron trigger endpoints for 5:00 AM daily devotions
+router.get('/trigger-daily', ReminderController.triggerDailyReminders);
+router.post('/trigger-daily', ReminderController.triggerDailyReminders);
+
+// All user-specific reminder endpoints require valid JWT authentication
 router.use(authenticateToken);
 
 router.get('/', ReminderController.getReminderSettings);

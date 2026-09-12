@@ -244,5 +244,49 @@ describe('DAILY GRACE — Complete Daily Email Reminder & Duplicate Protection S
 
     assert.equal(timeString, '05:00', '04:00 UTC must format to 05:00 in Africa/Lagos (Nigeria Time)');
   });
+
+  /**
+   * TEST 12 — ReminderController.triggerDailyReminders (GET/POST /api/reminders/trigger-daily)
+   */
+  it('Test 12: ReminderController.triggerDailyReminders returns 200 and triggers 5 AM devotions', async () => {
+    const { ReminderController } = await import('../src/controllers/reminderController.js');
+
+    const req = { query: {}, body: {} };
+    let responseStatus = null;
+    let responseJson = null;
+
+    const res = {
+      status(code) {
+        responseStatus = code;
+        return this;
+      },
+      json(data) {
+        responseJson = data;
+        return this;
+      },
+    };
+
+    await ReminderController.triggerDailyReminders(req, res, () => {});
+
+    assert.equal(responseStatus, 200);
+    assert.equal(responseJson.success, true);
+    assert.equal(responseJson.message, 'Daily 5 AM devotions triggered successfully');
+    assert.ok(responseJson.data);
+  });
+
+  /**
+   * TEST 13 — reminderScheduler dispatcher and re-export verification
+   */
+  it('Test 13: reminderScheduler exports 5:00 AM defaults and dispatch function', async () => {
+    const { DEFAULT_REMINDER_CRON, DEFAULT_REMINDER_TIME, DEFAULT_REMINDER_TIMEZONE, dispatchDailyReminders } = await import('../src/scheduler/reminderScheduler.js');
+
+    assert.equal(DEFAULT_REMINDER_CRON, '0 5 * * *');
+    assert.equal(DEFAULT_REMINDER_TIME, '05:00');
+    assert.equal(DEFAULT_REMINDER_TIMEZONE, 'Africa/Lagos');
+
+    const result = await dispatchDailyReminders('2026-08-29');
+    assert.ok(result);
+    assert.equal(result.reminderDate, '2026-08-29');
+  });
 });
 

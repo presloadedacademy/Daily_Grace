@@ -501,20 +501,34 @@ class EmailService {
       </html>
     `;
 
-    const transporter = this.getTransporter();
-    if (transporter) {
+    if (process.env.NODE_ENV === 'test') {
+      return { success: true, mode: 'test', motivation };
+    }
+
+    const fromEmail = process.env.RESEND_FROM || config.resendFrom || 'Daily Grace <onboarding@resend.dev>';
+    const targetEmail = String(to).trim().toLowerCase();
+    const apiKey = process.env.RESEND_API_KEY || config.resendApiKey;
+
+    if (apiKey) {
       try {
-        await transporter.sendMail({
-          from: config.email.from,
-          to,
+        const { data, error } = await resend.emails.send({
+          from: fromEmail,
+          to: [targetEmail],
           subject,
           text: textContent,
           html: htmlContent,
         });
-        return { success: true, mode: 'smtp' };
-      } catch (error) {
-        console.error(`[EmailService Error] Failed to send reminder email to ${to}:`, error.message);
-        throw new Error(`SMTP failure: ${error.message}`);
+
+        if (error) {
+          console.error(`[EmailService Error] Failed to send reminder email to ${targetEmail} via Resend:`, error);
+          throw new Error(error.message);
+        }
+
+        console.log(`[EmailService] Devotional reminder successfully sent via Resend API to: ${targetEmail}`);
+        return { success: true, mode: 'resend', data, motivation };
+      } catch (err) {
+        console.error(`[EmailService Error] Resend dispatch failed for ${targetEmail}:`, err.message);
+        throw err;
       }
     } else {
       console.log('\n================== [DAILY GRACE REMINDER SERVICE] ==================');

@@ -5,7 +5,7 @@ import { AppError } from './authService.js';
 import { isValidUuid } from '../utils/cryptoUtils.js';
 import { config } from '../config/env.js';
 
-export const BASE_CALENDAR_DATE = '2026-09-08'; // Day 1: "Peace Begins With God"
+export const BASE_CALENDAR_DATE = process.env.BASE_CALENDAR_DATE || '2026-09-12'; // Day 1: "Peace Begins With God"
 
 /**
  * Helper to compute the calendar date string (YYYY-MM-DD) in Africa/Lagos (WAT) timezone.

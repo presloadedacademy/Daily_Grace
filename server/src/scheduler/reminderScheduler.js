@@ -1,19 +1,34 @@
 import { config } from '../config/env.js';
 import { ReminderService } from '../services/reminderService.js';
 
+export const DEFAULT_REMINDER_CRON = '0 5 * * *';
+export const DEFAULT_REMINDER_TIME = '05:00';
+export const DEFAULT_REMINDER_TIMEZONE = 'Africa/Lagos';
+
 let schedulerInterval = null;
 let lastTriggeredDate = null;
+
+/**
+ * Triggers the daily reminder dispatcher job.
+ * @param {string} [customDate] Optional YYYY-MM-DD date string
+ */
+export async function dispatchDailyReminders(customDate = null) {
+  return ReminderService.processDailyReminders(customDate);
+}
 
 /**
  * Initializes the background daily reminder scheduler.
  */
 export function startReminderScheduler() {
+  const reminderTime = config.dailyReminderTime || DEFAULT_REMINDER_TIME;
+  const timezone = config.reminderTimezone || DEFAULT_REMINDER_TIMEZONE;
+
   if (!config.enableReminderScheduler) {
     console.log('[ReminderScheduler] Daily reminder scheduler is disabled in configuration.');
     return;
   }
 
-  console.log(`[ReminderScheduler] Daily reminder scheduler active. Scheduled time: ${config.dailyReminderTime} (${config.reminderTimezone}).`);
+  console.log(`[ReminderScheduler] Daily reminder scheduler active. Scheduled time: ${reminderTime} (${timezone}). Cron: ${config.reminderCronSchedule || DEFAULT_REMINDER_CRON}`);
 
   // Check every 60 seconds
   schedulerInterval = setInterval(async () => {

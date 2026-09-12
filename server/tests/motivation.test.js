@@ -1,9 +1,15 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { MotivationService, calculateGlobalDayNumber } from '../src/services/motivationService.js';
+import { MotivationService, calculateGlobalDayNumber, BASE_CALENDAR_DATE } from '../src/services/motivationService.js';
 import { MotivationRepository } from '../src/repositories/motivationRepository.js';
 import { DailyAssignmentRepository } from '../src/repositories/dailyAssignmentRepository.js';
 import { generateUuid } from '../src/utils/cryptoUtils.js';
+
+function addDays(baseDateStr, days) {
+  const [y, m, d] = baseDateStr.split('-').map(Number);
+  const targetUtc = Date.UTC(y, m - 1, d) + days * 24 * 3600 * 1000;
+  return new Date(targetUtc).toISOString().split('T')[0];
+}
 
 describe('DAILY GRACE — Global Calendar Motivation Engine Tests', () => {
 
@@ -12,11 +18,11 @@ describe('DAILY GRACE — Global Calendar Motivation Engine Tests', () => {
   });
 
   /**
-   * TEST 1 — Global Calendar Assignment on Base Date (Sept 8 = Day 1)
+   * TEST 1 — Global Calendar Assignment on Base Date (Base Date = Day 1)
    */
-  it('Test 1: September 8 returns Day 1 ("Peace Begins With God") for any user', async () => {
+  it('Test 1: Base calendar date returns Day 1 ("Peace Begins With God") for any user', async () => {
     const userId = generateUuid();
-    const motivation = await MotivationService.getTodaysMotivation(userId, '2026-09-08');
+    const motivation = await MotivationService.getTodaysMotivation(userId, BASE_CALENDAR_DATE);
 
     assert.ok(motivation.id, 'Motivation must have an ID');
     assert.equal(motivation.title, 'Peace Begins With God');
@@ -27,26 +33,27 @@ describe('DAILY GRACE — Global Calendar Motivation Engine Tests', () => {
     assert.ok(motivation.prayer);
 
     // Confirm assignment exists in database for this date
-    const savedAssignment = await MotivationRepository.findAssignmentByUserAndDate(userId, '2026-09-08');
+    const savedAssignment = await MotivationRepository.findAssignmentByUserAndDate(userId, BASE_CALENDAR_DATE);
     assert.ok(savedAssignment, 'Assignment must be saved');
     assert.equal(savedAssignment.id, motivation.id);
   });
 
   /**
-   * TEST 2 — Global Calendar Assignment Next Day (Sept 9 = Day 2)
+   * TEST 2 — Global Calendar Assignment Next Day (Next Day = Day 2)
    */
-  it('Test 2: September 9 MUST return Day 2 ("A Quiet Soul") for EVERY user (new, admin, existing)', async () => {
+  it('Test 2: Next calendar date MUST return Day 2 ("A Quiet Soul") for EVERY user (new, admin, existing)', async () => {
     const newUser = generateUuid();
     const existingUser = generateUuid();
     const adminUser = generateUuid();
+    const day2Date = addDays(BASE_CALENDAR_DATE, 1);
 
-    // Existing user had Day 1 on Sept 8
-    await MotivationService.getTodaysMotivation(existingUser, '2026-09-08');
+    // Existing user had Day 1 on Base Date
+    await MotivationService.getTodaysMotivation(existingUser, BASE_CALENDAR_DATE);
 
-    // On Sept 9, all 3 users request today's motivation
-    const motNew = await MotivationService.getTodaysMotivation(newUser, '2026-09-09');
-    const motExisting = await MotivationService.getTodaysMotivation(existingUser, '2026-09-09');
-    const motAdmin = await MotivationService.getTodaysMotivation(adminUser, '2026-09-09');
+    // On Day 2, all 3 users request today's motivation
+    const motNew = await MotivationService.getTodaysMotivation(newUser, day2Date);
+    const motExisting = await MotivationService.getTodaysMotivation(existingUser, day2Date);
+    const motAdmin = await MotivationService.getTodaysMotivation(adminUser, day2Date);
 
     assert.equal(motNew.title, 'A Quiet Soul');
     assert.equal(motNew.day_number, 2);
@@ -66,9 +73,10 @@ describe('DAILY GRACE — Global Calendar Motivation Engine Tests', () => {
    */
   it('Test 3: Page refresh on the same date returns identical motivation without duplicate assignments', async () => {
     const userId = generateUuid();
-    const firstCall = await MotivationService.getTodaysMotivation(userId, '2026-09-09');
-    const refreshCall = await MotivationService.getTodaysMotivation(userId, '2026-09-09');
-    const secondRefresh = await MotivationService.getTodaysMotivation(userId, '2026-09-09');
+    const date = addDays(BASE_CALENDAR_DATE, 1);
+    const firstCall = await MotivationService.getTodaysMotivation(userId, date);
+    const refreshCall = await MotivationService.getTodaysMotivation(userId, date);
+    const secondRefresh = await MotivationService.getTodaysMotivation(userId, date);
 
     assert.equal(firstCall.id, refreshCall.id);
     assert.equal(firstCall.title, refreshCall.title);
@@ -80,13 +88,15 @@ describe('DAILY GRACE — Global Calendar Motivation Engine Tests', () => {
    */
   it('Test 4: Devotions from yesterday are void for today view; screen renders current calendar day', async () => {
     const userId = generateUuid();
+    const day1Date = BASE_CALENDAR_DATE;
+    const day2Date = addDays(BASE_CALENDAR_DATE, 1);
 
-    // User views Sept 8 devotional
-    const motYesterday = await MotivationService.getTodaysMotivation(userId, '2026-09-08');
+    // User views Day 1 devotional
+    const motYesterday = await MotivationService.getTodaysMotivation(userId, day1Date);
     assert.equal(motYesterday.title, 'Peace Begins With God');
 
-    // Next day (Sept 9), user views today's devotional
-    const motToday = await MotivationService.getTodaysMotivation(userId, '2026-09-09');
+    // Next day, user views today's devotional
+    const motToday = await MotivationService.getTodaysMotivation(userId, day2Date);
     assert.equal(motToday.title, 'A Quiet Soul');
     assert.notEqual(motYesterday.id, motToday.id);
   });
@@ -96,7 +106,7 @@ describe('DAILY GRACE — Global Calendar Motivation Engine Tests', () => {
    */
   it('Test 5: Sequential dates advance through devotionals in global calendar order', async () => {
     const userId = generateUuid();
-    const dates = ['2026-09-08', '2026-09-09', '2026-09-10', '2026-09-11', '2026-09-12'];
+    const dates = [0, 1, 2, 3, 4].map((d) => addDays(BASE_CALENDAR_DATE, d));
     const seenIds = new Set();
 
     for (let i = 0; i < dates.length; i++) {
@@ -115,18 +125,18 @@ describe('DAILY GRACE — Global Calendar Motivation Engine Tests', () => {
   it('Test 6: calculateGlobalDayNumber cleanly wraps around total published count using modulo', () => {
     const total = 184;
 
-    // Day 1: 2026-09-08
-    assert.equal(calculateGlobalDayNumber('2026-09-08', total), 1);
+    // Day 1: BASE_CALENDAR_DATE
+    assert.equal(calculateGlobalDayNumber(BASE_CALENDAR_DATE, total), 1);
 
-    // Day 2: 2026-09-09
-    assert.equal(calculateGlobalDayNumber('2026-09-09', total), 2);
+    // Day 2: BASE_CALENDAR_DATE + 1 day
+    assert.equal(calculateGlobalDayNumber(addDays(BASE_CALENDAR_DATE, 1), total), 2);
 
-    // Day 184: 2026-09-08 + 183 days
-    const day184 = new Date(Date.UTC(2026, 8, 8) + 183 * 24 * 3600 * 1000).toISOString().split('T')[0];
+    // Day 184: BASE_CALENDAR_DATE + 183 days
+    const day184 = addDays(BASE_CALENDAR_DATE, 183);
     assert.equal(calculateGlobalDayNumber(day184, total), 184);
 
-    // Day 185 (Wraps to 1): 2026-09-08 + 184 days
-    const day185 = new Date(Date.UTC(2026, 8, 8) + 184 * 24 * 3600 * 1000).toISOString().split('T')[0];
+    // Day 185 (Wraps to 1): BASE_CALENDAR_DATE + 184 days
+    const day185 = addDays(BASE_CALENDAR_DATE, 184);
     assert.equal(calculateGlobalDayNumber(day185, total), 1);
   });
 
@@ -135,7 +145,7 @@ describe('DAILY GRACE — Global Calendar Motivation Engine Tests', () => {
    */
   it('Test 7: Handles concurrent simultaneous requests safely with atomic single assignment', async () => {
     const userId = generateUuid();
-    const date = '2026-09-09';
+    const date = addDays(BASE_CALENDAR_DATE, 1);
 
     const results = await Promise.all([
       MotivationService.getTodaysMotivation(userId, date),
@@ -157,9 +167,9 @@ describe('DAILY GRACE — Global Calendar Motivation Engine Tests', () => {
    */
   it('Test 8: Existing assignment created under old logic auto-corrects to global calendar day', async () => {
     const userId = generateUuid();
-    const date = '2026-09-09';
+    const date = addDays(BASE_CALENDAR_DATE, 1);
 
-    // Simulate stale assignment in DB with Day 1 ("Peace Begins With God") on Sept 9
+    // Simulate stale assignment in DB with Day 1 ("Peace Begins With God") on Day 2 date
     const day1Mot = await MotivationRepository.findByDayNumber(1);
     await DailyAssignmentRepository.createDailyAssignment({
       userId,
