@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useNavigate } from '../context/NavigationContext.jsx';
 import { userService } from '../services/userService.js';
+import { PushNotificationClient } from '../services/pushNotificationService.js';
 import { Alert } from '../components/Alert.jsx';
 import { LoadingSpinner } from '../components/LoadingSpinner.jsx';
 import BottomNavigation from '../components/BottomNavigation.jsx';
@@ -46,10 +47,15 @@ export function SettingsPage() {
     setFeedback(null);
 
     try {
+      if (newValue) {
+        // Paused -> Active: ensure permission is requested and device subscription is stored
+        await PushNotificationClient.registerAndSubscribe();
+      }
+
       await userService.updatePreferences({ notificationEnabled: newValue });
       setFeedback({
         type: 'success',
-        message: `Daily reminder has been ${newValue ? 'enabled' : 'disabled'}.`,
+        message: `Daily Grace notifications are now ${newValue ? 'active' : 'paused'}.`,
       });
     } catch (err) {
       setNotificationEnabled(!newValue);
@@ -133,7 +139,7 @@ export function SettingsPage() {
             {/* 2. NOTIFICATIONS PREFERENCES CARD */}
             <section className="settings-section-card" id="settings-reminders-card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h3 className="profile-card-section-title" style={{ margin: 0 }}>Daily Reminders</h3>
+                <h3 className="profile-card-section-title" style={{ margin: 0 }}>Daily Grace Notifications</h3>
                 <span
                   style={{
                     fontSize: '0.75rem',
@@ -152,11 +158,9 @@ export function SettingsPage() {
 
               <div className="settings-toggle-row">
                 <div>
-                  <span className="settings-toggle-label">Morning Motivation Email</span>
+                  <span className="settings-toggle-label">Daily Grace Notifications</span>
                   <span className="settings-toggle-sub">
-                    {notificationEnabled
-                      ? 'Receive your daily Scripture & prayer every morning'
-                      : 'Reminders are currently paused'}
+                    Receive your daily Scripture, reflection and prayer notification.
                   </span>
                 </div>
 
@@ -166,7 +170,7 @@ export function SettingsPage() {
                     checked={notificationEnabled}
                     onChange={handleTogglePreference}
                     disabled={isUpdatingPreference}
-                    aria-label="Toggle Daily Reminder"
+                    aria-label="Toggle Daily Grace Notifications"
                   />
                   <span className="toggle-slider" />
                 </label>

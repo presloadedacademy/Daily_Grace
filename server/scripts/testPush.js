@@ -22,13 +22,18 @@ async function main() {
     }
 
     console.log(`[Push Test] Found User: ${user.name} (ID: ${user.id})`);
+    console.log(`[Push Test] Notification Preference: ${user.notification_enabled ? 'Active (true)' : 'Paused (false)'}`);
 
     // 2. Look up push subscriptions
     const subscriptions = await PushSubscriptionRepository.findSubscriptionsByUserId(user.id);
 
     if (!subscriptions || subscriptions.length === 0) {
       console.log('\n----------------------------------------------------------------');
-      console.log('No push subscriptions found for this user in the database. Make sure you logged in on mobile and tapped Allow on the notification prompt.');
+      console.log('No push subscriptions found for this user in the database.');
+      console.log('To register this device:');
+      console.log('1. Log into Daily Grace in your browser.');
+      console.log('2. Go to Settings -> Daily Grace Notifications and ensure it is Active.');
+      console.log('3. Grant browser notification permissions when prompted.');
       console.log('----------------------------------------------------------------\n');
       await closePool();
       process.exit(0);
@@ -36,10 +41,10 @@ async function main() {
 
     console.log(`[Push Test] Found ${subscriptions.length} active device subscription(s) for user.`);
 
-    // 3. Dispatch test pop-up alert
+    // 3. Dispatch test notification with exact production payload
     const pushPayload = {
-      title: 'Daily Grace 🌿',
-      body: 'Test pop-up alert! Your daily devotional is ready.',
+      title: '🙏 Your Daily Grace is Ready',
+      body: "Start your day with today's Scripture, reflection and prayer.",
       url: '/today',
       tag: 'daily-devotion',
     };
@@ -49,16 +54,17 @@ async function main() {
     const response = await pushNotificationService.sendPushToUser(user.id, pushPayload);
 
     console.log('\n================== [PUSH DISPATCH RESPONSE] ==================');
-    console.log(`Sent: ${response.sent}`);
-    console.log(`Failed: ${response.failed}`);
-    console.log(`Total: ${response.total}`);
-    console.log('Exact Result Object:', JSON.stringify(response, null, 2));
+    console.log(`Backend Sent Count : ${response.sent}`);
+    console.log(`Backend Failed Count: ${response.failed}`);
+    console.log(`Total Target Subs  : ${response.total}`);
+    console.log('Raw Response:', JSON.stringify(response, null, 2));
     console.log('==============================================================\n');
 
     if (response.sent > 0) {
-      console.log('✓ Push notification successfully delivered to device(s)!');
+      console.log('✓ Backend delivery confirmed! Handed over to browser push service.');
+      console.log('  Now check your physical device / browser to confirm the notification alert is displayed.');
     } else {
-      console.log('⚠ Push notification dispatch completed, but 0 devices received it.');
+      console.log('⚠ Push dispatch finished, but 0 devices were accepted by the push service.');
     }
 
     await closePool();

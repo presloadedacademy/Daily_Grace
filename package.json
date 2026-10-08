@@ -13,6 +13,7 @@
     "import:motivations": "npm --prefix server run import:motivations",
     "reminders:send": "npm --prefix server run reminders:send",
     "reminders:test": "npm --prefix server run reminders:test",
+    "push:send": "npm --prefix server run push:send",
     "test": "npm --prefix server test",
     "build": "npm --prefix client run build"
   },

@@ -87,6 +87,34 @@ export class PushSubscriptionRepository {
   }
 
   /**
+   * Find all users who have active push subscriptions and notification_enabled = true.
+   */
+  static async findEligiblePushUsers() {
+    if (!isDatabaseAvailable()) {
+      const userMap = new Map();
+      for (const sub of devSubscriptionsStore.values()) {
+        if (sub.user_id && !userMap.has(sub.user_id)) {
+          userMap.set(sub.user_id, { id: sub.user_id });
+        }
+      }
+      return Array.from(userMap.values());
+    }
+
+    const text = `
+      SELECT DISTINCT
+        u.id,
+        u.name,
+        u.email
+      FROM users u
+      INNER JOIN push_subscriptions ps ON ps.user_id = u.id
+      WHERE u.notification_enabled = TRUE
+      ORDER BY u.name ASC;
+    `;
+    const res = await query(text);
+    return res.rows;
+  }
+
+  /**
    * Reset dev store for unit test isolation.
    */
   static _resetDevStore() {

@@ -66,8 +66,8 @@ async function main() {
     } else {
       console.log(`Found ${subscriptions.length} active device push subscription(s). Dispatching push alert...`);
       const pushRes = await pushNotificationService.sendPushToUser(user.id, {
-        title: 'Daily Grace 🌿',
-        body: `Your daily devotional is ready: ${motivation.title}`,
+        title: '🙏 Your Daily Grace is Ready',
+        body: "Start your day with today's Scripture, reflection and prayer.",
         url: '/today',
         tag: 'daily-devotion',
       });

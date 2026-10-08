@@ -85,7 +85,7 @@ class PushNotificationService {
   /**
    * Send a push notification to all active devices registered to a user.
    */
-  async sendPushToUser(userId, { title = 'Daily Grace 🌿', body = "Today's devotional is ready for you.", url = '/today', tag = 'daily-devotion' }) {
+  async sendPushToUser(userId, { title = '🙏 Your Daily Grace is Ready', body = "Start your day with today's Scripture, reflection and prayer.", url = '/today', tag = 'daily-devotion' } = {}) {
     if (!userId) return { sent: 0, failed: 0 };
 
     const subscriptions = await PushSubscriptionRepository.findSubscriptionsByUserId(userId);

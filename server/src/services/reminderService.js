@@ -59,8 +59,8 @@ export class ReminderService {
 
         // Send Web Push notification if user has registered device push subscriptions
         pushNotificationService.sendPushToUser(user.id, {
-          title: 'Daily Grace 🌿',
-          body: `Your daily devotional is ready: ${motivation?.title || 'Daily Grace'}`,
+          title: '🙏 Your Daily Grace is Ready',
+          body: "Start your day with today's Scripture, reflection and prayer.",
           url: '/today',
           tag: 'daily-devotion',
         }).catch((pushErr) => {

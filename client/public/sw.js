@@ -22,9 +22,9 @@ self.addEventListener('push', (event) => {
     self.navigator.setAppBadge(1).catch(() => {});
   }
 
-  const title = data.title || 'Daily Grace 🌿';
+  const title = data.title || '🙏 Your Daily Grace is Ready';
   const options = {
-    body: data.body || "Your daily devotional is ready.",
+    body: data.body || "Start your day with today's Scripture, reflection and prayer.",
     icon: '/icon-192x192.png',
     badge: '/badge-72x72.png',
     tag: 'daily-devotion',

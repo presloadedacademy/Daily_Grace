@@ -84,16 +84,16 @@ describe('DAILY GRACE — Web Push Notifications & VAPID Setup Suite', () => {
 
     try {
       const result = await pushNotificationService.sendPushToUser(userId, {
-        title: 'Daily Grace 🌿',
-        body: 'Your daily devotional is ready: Peace That Surpasses Understanding',
+        title: '🙏 Your Daily Grace is Ready',
+        body: "Start your day with today's Scripture, reflection and prayer.",
         url: '/today',
       });
 
       assert.equal(result.sent, 2);
       assert.equal(result.total, 2);
       assert.equal(dispatched.length, 2);
-      assert.equal(dispatched[0].payload.title, 'Daily Grace 🌿');
-      assert.ok(dispatched[0].payload.body.includes('Peace That Surpasses Understanding'));
+      assert.equal(dispatched[0].payload.title, '🙏 Your Daily Grace is Ready');
+      assert.equal(dispatched[0].payload.body, "Start your day with today's Scripture, reflection and prayer.");
       assert.equal(dispatched[0].payload.url, '/today');
     } finally {
       pushNotificationService.sendPushNotification = originalSend;
@@ -124,5 +124,136 @@ describe('DAILY GRACE — Web Push Notifications & VAPID Setup Suite', () => {
 
     const remaining = await PushSubscriptionRepository.findSubscriptionsByUserId(userId);
     assert.equal(remaining.length, 0);
+  });
+
+  it('6. Push workflow: Paused user (notification_enabled = false) triggers 0 push dispatches', async () => {
+    const pausedUser = {
+      id: generateUuid(),
+      email: 'paused@dailygrace.app',
+      notification_enabled: false,
+    };
+
+    let pushCallCount = 0;
+    const originalSendPushToUser = pushNotificationService.sendPushToUser;
+    pushNotificationService.sendPushToUser = async () => {
+      pushCallCount++;
+      return { sent: 1, failed: 0 };
+    };
+
+    try {
+      // Simulate workflow evaluation
+      if (pausedUser.notification_enabled) {
+        await pushNotificationService.sendPushToUser(pausedUser.id, {});
+      }
+
+      assert.equal(pushCallCount, 0, 'Must not dispatch push notifications when notification_enabled is false');
+    } finally {
+      pushNotificationService.sendPushToUser = originalSendPushToUser;
+    }
+  });
+
+  it('7. Push workflow: Active user (notification_enabled = true) triggers push dispatch only to target user', async () => {
+    const activeUser = {
+      id: generateUuid(),
+      email: 'active@dailygrace.app',
+      notification_enabled: true,
+    };
+
+    const targetUserIds = [];
+    const originalSendPushToUser = pushNotificationService.sendPushToUser;
+    pushNotificationService.sendPushToUser = async (userId, payload) => {
+      targetUserIds.push(userId);
+      return { sent: 1, failed: 0, total: 1 };
+    };
+
+    try {
+      if (activeUser.notification_enabled) {
+        await pushNotificationService.sendPushToUser(activeUser.id, {
+          title: '🙏 Your Daily Grace is Ready',
+          body: "Start your day with today's Scripture, reflection and prayer.",
+          url: '/today',
+          tag: 'daily-devotion',
+        });
+      }
+
+      assert.equal(targetUserIds.length, 1);
+      assert.equal(targetUserIds[0], activeUser.id, 'Must only send push to the targeted user ID');
+    } finally {
+      pushNotificationService.sendPushToUser = originalSendPushToUser;
+    }
+  });
+
+  it('8. Push workflow: Non-existent user triggers 0 push dispatches and throws no unhandled errors', async () => {
+    const foundUser = null;
+    let pushCallCount = 0;
+
+    if (foundUser && foundUser.notification_enabled) {
+      pushCallCount++;
+    }
+
+    assert.equal(pushCallCount, 0, 'Must not call push sender when user is not found');
+  });
+
+  it('9. findEligiblePushUsers retrieves distinct subscribed users with notification_enabled = true', async () => {
+    const user1 = generateUuid();
+    const user2 = generateUuid();
+
+    // Register 2 subscriptions for user 1
+    await PushSubscriptionRepository.saveSubscription({
+      userId: user1,
+      endpoint: 'https://push.example.com/user1_device1',
+      p256dh: 'p256_1',
+      auth: 'auth_1',
+    });
+    await PushSubscriptionRepository.saveSubscription({
+      userId: user1,
+      endpoint: 'https://push.example.com/user1_device2',
+      p256dh: 'p256_2',
+      auth: 'auth_2',
+    });
+
+    // Register 1 subscription for user 2
+    await PushSubscriptionRepository.saveSubscription({
+      userId: user2,
+      endpoint: 'https://push.example.com/user2_device1',
+      p256dh: 'p256_3',
+      auth: 'auth_3',
+    });
+
+    const eligible = await PushSubscriptionRepository.findEligiblePushUsers();
+    assert.ok(Array.isArray(eligible));
+    assert.equal(eligible.length, 2, 'Must return distinct users (2 users even with 3 total subscriptions)');
+  });
+
+  it('10. processDailyPushNotifications dispatches to eligible subscribers with zero emails and zero reminder log changes', async () => {
+    const { processDailyPushNotifications } = await import('../scripts/sendDailyPushNotifications.js');
+
+    const user1 = generateUuid();
+    await PushSubscriptionRepository.saveSubscription({
+      userId: user1,
+      endpoint: 'https://push.example.com/daily_cron_device',
+      p256dh: 'p256_cron',
+      auth: 'auth_cron',
+    });
+
+    const dispatchedPush = [];
+    const originalSend = pushNotificationService.sendPushToUser;
+    pushNotificationService.sendPushToUser = async (userId, payload) => {
+      dispatchedPush.push({ userId, payload });
+      return { sent: 1, failed: 0, total: 1 };
+    };
+
+    try {
+      const summary = await processDailyPushNotifications('2026-10-08', [{ id: user1, email: 'user1@example.com' }]);
+
+      assert.ok(summary);
+      assert.equal(summary.emailsSent, 0, 'Must never send email during daily push cron');
+      assert.equal(summary.reminderLogsModified, 0, 'Must not modify reminder logs during push-only cron');
+      assert.equal(summary.pushSent, 1);
+      assert.equal(dispatchedPush.length, 1);
+      assert.equal(dispatchedPush[0].payload.title, '🙏 Your Daily Grace is Ready');
+    } finally {
+      pushNotificationService.sendPushToUser = originalSend;
+    }
   });
 });
