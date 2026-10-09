@@ -20,4 +20,14 @@ router.all('/trigger-daily-push', (req, res) => {
   });
 });
 
+// POST /api/notifications/test-push (Protected Single-User Test Push)
+router.post('/test-push', NotificationController.testPush);
+router.all('/test-push', (req, res) => {
+  res.status(405).json({
+    success: false,
+    code: 'METHOD_NOT_ALLOWED',
+    message: 'Method Not Allowed. Use POST.',
+  });
+});
+
 export default router;

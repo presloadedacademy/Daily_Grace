@@ -1,6 +1,7 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { PushSubscriptionRepository } from '../src/repositories/pushSubscriptionRepository.js';
+import { UserRepository } from '../src/repositories/userRepository.js';
 import { PushNotificationService, pushNotificationService } from '../src/services/pushNotificationService.js';
 import { generateUuid } from '../src/utils/cryptoUtils.js';
 import { config } from '../src/config/env.js';
@@ -8,6 +9,7 @@ import { config } from '../src/config/env.js';
 describe('DAILY GRACE — Web Push Notifications & VAPID Setup Suite', () => {
   beforeEach(() => {
     PushSubscriptionRepository._resetDevStore();
+    UserRepository._resetDevStore();
   });
 
   it('1. VAPID key is configured and accessible', () => {
@@ -489,5 +491,213 @@ describe('DAILY GRACE — Web Push Notifications & VAPID Setup Suite', () => {
       NotificationController._resetPushState();
     }
   });
+
+  it('17. POST /api/notifications/test-push rejects missing or invalid cron secret with 401', async () => {
+    const { NotificationController } = await import('../src/controllers/notificationController.js');
+    config.cronSecret = 'test_super_secure_cron_secret_12345';
+
+    let resStatus = null;
+    let resJson = null;
+    const mockRes = {
+      status(code) {
+        resStatus = code;
+        return { json(data) { resJson = data; } };
+      },
+    };
+
+    // Missing secret
+    await NotificationController.testPush({ headers: {}, body: { email: 'user@example.com' } }, mockRes, (err) => { throw err; });
+    assert.equal(resStatus, 401);
+    assert.equal(resJson.code, 'UNAUTHORIZED');
+
+    // Wrong secret
+    await NotificationController.testPush({ headers: { 'x-cron-secret': 'wrong' }, body: { email: 'user@example.com' } }, mockRes, (err) => { throw err; });
+    assert.equal(resStatus, 401);
+    assert.equal(resJson.code, 'UNAUTHORIZED');
+  });
+
+  it('18. POST /api/notifications/test-push returns 400 when email is missing or empty', async () => {
+    const { NotificationController } = await import('../src/controllers/notificationController.js');
+    config.cronSecret = 'test_super_secure_cron_secret_12345';
+
+    let resStatus = null;
+    let resJson = null;
+    const mockRes = {
+      status(code) {
+        resStatus = code;
+        return { json(data) { resJson = data; } };
+      },
+    };
+
+    await NotificationController.testPush({
+      headers: { 'x-cron-secret': 'test_super_secure_cron_secret_12345' },
+      body: {},
+    }, mockRes, (err) => { throw err; });
+
+    assert.equal(resStatus, 400);
+    assert.equal(resJson.code, 'INVALID_REQUEST');
+  });
+
+  it('19. POST /api/notifications/test-push returns 404 when user is not found', async () => {
+    const { NotificationController } = await import('../src/controllers/notificationController.js');
+    config.cronSecret = 'test_super_secure_cron_secret_12345';
+
+    let resStatus = null;
+    let resJson = null;
+    const mockRes = {
+      status(code) {
+        resStatus = code;
+        return { json(data) { resJson = data; } };
+      },
+    };
+
+    await NotificationController.testPush({
+      headers: { 'x-cron-secret': 'test_super_secure_cron_secret_12345' },
+      body: { email: 'nonexistent@example.com' },
+    }, mockRes, (err) => { throw err; });
+
+    assert.equal(resStatus, 404);
+    assert.equal(resJson.code, 'USER_NOT_FOUND');
+    assert.equal(resJson.data.userFound, false);
+  });
+
+  it('20. POST /api/notifications/test-push returns paused status when user has notification_enabled = false without sending push', async () => {
+    const { NotificationController } = await import('../src/controllers/notificationController.js');
+    const { UserService } = await import('../src/services/userService.js');
+    config.cronSecret = 'test_super_secure_cron_secret_12345';
+
+    const pausedUser = await UserRepository.createUser({
+      name: 'Paused Tester',
+      email: 'paused_user@example.com',
+      passwordHash: 'hash',
+      emailVerified: true,
+    });
+    // Explicitly update notification_enabled to false via repository/service
+    await UserService.updatePreferences(pausedUser.id, false);
+
+    let pushAttempted = false;
+    const originalSendNotification = pushNotificationService.sendPushNotification;
+    pushNotificationService.sendPushNotification = async () => {
+      pushAttempted = true;
+      return { success: true };
+    };
+
+    try {
+      let resJson = null;
+      await NotificationController.testPush({
+        headers: { 'x-cron-secret': 'test_super_secure_cron_secret_12345' },
+        body: { email: 'paused_user@example.com' },
+      }, {
+        status(code) {
+          assert.equal(code, 200);
+          return { json(data) { resJson = data; } };
+        },
+      }, (err) => { throw err; });
+
+      assert.equal(resJson.code, 'NOTIFICATIONS_PAUSED');
+      assert.equal(resJson.data.notificationEnabled, false);
+      assert.equal(pushAttempted, false, 'Must not attempt to send push to paused user');
+    } finally {
+      pushNotificationService.sendPushNotification = originalSendNotification;
+    }
+  });
+
+  it('21. POST /api/notifications/test-push returns no subscriptions status when user has 0 devices', async () => {
+    const { NotificationController } = await import('../src/controllers/notificationController.js');
+    config.cronSecret = 'test_super_secure_cron_secret_12345';
+
+    await UserRepository.createUser({
+      name: 'No Devices Tester',
+      email: 'nodevices@example.com',
+      passwordHash: 'hash',
+      emailVerified: true,
+    });
+
+    let resJson = null;
+    await NotificationController.testPush({
+      headers: { 'x-cron-secret': 'test_super_secure_cron_secret_12345' },
+      body: { email: 'nodevices@example.com' },
+    }, {
+      status(code) {
+        assert.equal(code, 200);
+        return { json(data) { resJson = data; } };
+      },
+    }, (err) => { throw err; });
+
+    assert.equal(resJson.code, 'NO_SUBSCRIPTIONS');
+    assert.equal(resJson.data.devicesFound, 0);
+    assert.equal(resJson.data.sent, 0);
+  });
+
+  it('22. POST /api/notifications/test-push sends ONLY to target user and NEVER to other users', async () => {
+    const { NotificationController } = await import('../src/controllers/notificationController.js');
+    config.cronSecret = 'test_super_secure_cron_secret_12345';
+
+    // Target User
+    const targetUser = await UserRepository.createUser({
+      name: 'Target User',
+      email: 'target@example.com',
+      passwordHash: 'hash',
+      emailVerified: true,
+    });
+
+    await PushSubscriptionRepository.saveSubscription({
+      userId: targetUser.id,
+      endpoint: 'https://push.example.com/target_device_1',
+      p256dh: 'target_p256',
+      auth: 'target_auth',
+    });
+
+    // Other User
+    const otherUser = await UserRepository.createUser({
+      name: 'Other User',
+      email: 'other@example.com',
+      passwordHash: 'hash',
+      emailVerified: true,
+    });
+
+    await PushSubscriptionRepository.saveSubscription({
+      userId: otherUser.id,
+      endpoint: 'https://push.example.com/other_device_1',
+      p256dh: 'other_p256',
+      auth: 'other_auth',
+    });
+
+    const dispatchedToEndpoints = [];
+    const originalSendNotification = pushNotificationService.sendPushNotification;
+    pushNotificationService.sendPushNotification = async (sub, payload) => {
+      dispatchedToEndpoints.push({ endpoint: sub.endpoint, payload });
+      return { success: true, endpoint: sub.endpoint };
+    };
+
+    try {
+      let resJson = null;
+      await NotificationController.testPush({
+        headers: { 'x-cron-secret': 'test_super_secure_cron_secret_12345' },
+        body: { email: 'target@example.com' },
+      }, {
+        status(code) {
+          assert.equal(code, 200);
+          return { json(data) { resJson = data; } };
+        },
+      }, (err) => { throw err; });
+
+      assert.equal(resJson.success, true);
+      assert.equal(resJson.data.email, 'target@example.com');
+      assert.equal(resJson.data.sent, 1);
+      assert.equal(resJson.data.devicesFound, 1);
+
+      // Verify dispatched endpoints
+      assert.equal(dispatchedToEndpoints.length, 1);
+      assert.equal(dispatchedToEndpoints[0].endpoint, 'https://push.example.com/target_device_1');
+      assert.equal(dispatchedToEndpoints[0].payload.title, '🙏 Daily Grace Test');
+      assert.equal(dispatchedToEndpoints[0].payload.body, 'Your phone is successfully connected to Daily Grace notifications!');
+      assert.equal(dispatchedToEndpoints[0].payload.tag, 'daily-grace-test');
+      assert.equal(dispatchedToEndpoints[0].payload.url, '/today');
+    } finally {
+      pushNotificationService.sendPushNotification = originalSendNotification;
+    }
+  });
 });
+
 

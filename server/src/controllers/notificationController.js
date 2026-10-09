@@ -2,6 +2,8 @@ import crypto from 'crypto';
 import { pushNotificationService } from '../services/pushNotificationService.js';
 import { processDailyPushNotifications } from '../../scripts/sendDailyPushNotifications.js';
 import { getLagosDateString } from '../services/motivationService.js';
+import { UserRepository } from '../repositories/userRepository.js';
+import { PushSubscriptionRepository } from '../repositories/pushSubscriptionRepository.js';
 import { config } from '../config/env.js';
 
 // In-process lock and completion guard for single-instance protection
@@ -131,6 +133,131 @@ export class NotificationController {
       }
     } catch (error) {
       console.error('[NotificationController Error] triggerDailyPush failed:', error);
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/notifications/test-push
+   * Protected single-user test push notification endpoint.
+   */
+  static async testPush(req, res, next) {
+    try {
+      // 1. Authenticate Cron Secret
+      const authHeader = req.headers['authorization'];
+      const bearerSecret = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7).trim() : null;
+      const providedSecret = req.headers['x-cron-secret'] || bearerSecret || req.query?.secret;
+      const expectedSecret = config.cronSecret;
+
+      if (!expectedSecret || !providedSecret || !safeCompare(String(providedSecret), String(expectedSecret))) {
+        return res.status(401).json({
+          success: false,
+          code: 'UNAUTHORIZED',
+          message: 'Unauthorized: Missing or invalid cron secret.',
+        });
+      }
+
+      // 2. Validate email parameter
+      const rawEmail = req.body?.email || req.query?.email;
+      if (!rawEmail || typeof rawEmail !== 'string' || !rawEmail.trim()) {
+        return res.status(400).json({
+          success: false,
+          code: 'INVALID_REQUEST',
+          message: 'Valid user email is required in the request body.',
+        });
+      }
+
+      const email = rawEmail.trim().toLowerCase();
+
+      // 3. Find only that exact user in PostgreSQL
+      const user = await UserRepository.findByEmail(email);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          code: 'USER_NOT_FOUND',
+          message: `User with email "${email}" was not found.`,
+          data: {
+            userFound: false,
+            email,
+            notificationEnabled: false,
+            devicesFound: 0,
+            sent: 0,
+            failed: 0,
+          },
+        });
+      }
+
+      // 4. Check user's notification_enabled preference
+      if (!user.notification_enabled) {
+        return res.status(200).json({
+          success: false,
+          code: 'NOTIFICATIONS_PAUSED',
+          message: `User ${email} has notifications paused/disabled.`,
+          data: {
+            userFound: true,
+            email: user.email,
+            notificationEnabled: false,
+            devicesFound: 0,
+            sent: 0,
+            failed: 0,
+          },
+        });
+      }
+
+      // 5. Retrieve only that user's push subscriptions
+      const subscriptions = await PushSubscriptionRepository.findSubscriptionsByUserId(user.id);
+      if (!subscriptions || subscriptions.length === 0) {
+        return res.status(200).json({
+          success: false,
+          code: 'NO_SUBSCRIPTIONS',
+          message: `No active push subscriptions found for ${email}.`,
+          data: {
+            userFound: true,
+            email: user.email,
+            notificationEnabled: true,
+            devicesFound: 0,
+            sent: 0,
+            failed: 0,
+          },
+        });
+      }
+
+      // 6. Send exactly one test push notification to that user's registered devices only
+      const testPayload = {
+        title: '🙏 Daily Grace Test',
+        body: 'Your phone is successfully connected to Daily Grace notifications!',
+        url: '/today',
+        tag: 'daily-grace-test',
+        icon: '/icon-192x192.png',
+        badge: '/badge-72x72.png',
+      };
+
+      let sent = 0;
+      let failed = 0;
+
+      for (const sub of subscriptions) {
+        const result = await pushNotificationService.sendPushNotification(sub, testPayload);
+        if (result.success) {
+          sent++;
+        } else {
+          failed++;
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: `Test push notification processed for ${user.email}.`,
+        data: {
+          userFound: true,
+          email: user.email,
+          notificationEnabled: true,
+          devicesFound: subscriptions.length,
+          sent,
+          failed,
+        },
+      });
+    } catch (error) {
+      console.error('[NotificationController Error] testPush failed:', error);
       next(error);
     }
   }
