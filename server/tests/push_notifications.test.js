@@ -244,7 +244,7 @@ describe('DAILY GRACE — Web Push Notifications & VAPID Setup Suite', () => {
     };
 
     try {
-      const summary = await processDailyPushNotifications('2026-10-08', [{ id: user1, email: 'user1@example.com' }]);
+      const summary = await processDailyPushNotifications('2026-10-08', [{ id: user1, email: 'user1@example.com' }], { shouldClosePool: false });
 
       assert.ok(summary);
       assert.equal(summary.emailsSent, 0, 'Must never send email during daily push cron');
@@ -256,4 +256,238 @@ describe('DAILY GRACE — Web Push Notifications & VAPID Setup Suite', () => {
       pushNotificationService.sendPushToUser = originalSend;
     }
   });
+
+  it('11. POST /api/notifications/trigger-daily-push rejects missing cron secret with 401 Unauthorized', async () => {
+    const { NotificationController } = await import('../src/controllers/notificationController.js');
+    NotificationController._resetPushState();
+    config.cronSecret = 'test_super_secure_cron_secret_12345';
+
+    let resStatus = null;
+    let resJson = null;
+    const mockReq = {
+      headers: {},
+      query: {},
+      body: {},
+    };
+    const mockRes = {
+      status(code) {
+        resStatus = code;
+        return {
+          json(data) {
+            resJson = data;
+          },
+        };
+      },
+    };
+
+    await NotificationController.triggerDailyPush(mockReq, mockRes, (err) => { throw err; });
+
+    assert.equal(resStatus, 401);
+    assert.equal(resJson.success, false);
+    assert.equal(resJson.code, 'UNAUTHORIZED');
+  });
+
+  it('12. POST /api/notifications/trigger-daily-push rejects invalid cron secret with 401 Unauthorized', async () => {
+    const { NotificationController } = await import('../src/controllers/notificationController.js');
+    NotificationController._resetPushState();
+    config.cronSecret = 'test_super_secure_cron_secret_12345';
+
+    let resStatus = null;
+    let resJson = null;
+    const mockReq = {
+      headers: { 'x-cron-secret': 'wrong_secret_attempt' },
+      query: {},
+      body: {},
+    };
+    const mockRes = {
+      status(code) {
+        resStatus = code;
+        return {
+          json(data) {
+            resJson = data;
+          },
+        };
+      },
+    };
+
+    await NotificationController.triggerDailyPush(mockReq, mockRes, (err) => { throw err; });
+
+    assert.equal(resStatus, 401);
+    assert.equal(resJson.success, false);
+    assert.equal(resJson.code, 'UNAUTHORIZED');
+  });
+
+  it('13. POST /api/notifications/trigger-daily-push accepts valid x-cron-secret and dispatches pushes', async () => {
+    const { NotificationController } = await import('../src/controllers/notificationController.js');
+    NotificationController._resetPushState();
+    config.cronSecret = 'test_super_secure_cron_secret_12345';
+
+    let resStatus = null;
+    let resJson = null;
+    const mockReq = {
+      headers: { 'x-cron-secret': 'test_super_secure_cron_secret_12345' },
+      query: { date: '2026-10-09' },
+      body: {},
+    };
+    const mockRes = {
+      status(code) {
+        resStatus = code;
+        return {
+          json(data) {
+            resJson = data;
+          },
+        };
+      },
+    };
+
+    await NotificationController.triggerDailyPush(mockReq, mockRes, (err) => { throw err; });
+
+    assert.equal(resStatus, 200);
+    assert.equal(resJson.success, true);
+    assert.equal(resJson.data.date, '2026-10-09');
+    assert.equal(typeof resJson.data.pushSent, 'number');
+  });
+
+  it('14. POST /api/notifications/trigger-daily-push returns skipped on duplicate trigger for the same date', async () => {
+    const { NotificationController } = await import('../src/controllers/notificationController.js');
+    NotificationController._resetPushState();
+    config.cronSecret = 'test_super_secure_cron_secret_12345';
+
+    const mockReq = {
+      headers: { 'x-cron-secret': 'test_super_secure_cron_secret_12345' },
+      query: { date: '2026-10-09' },
+      body: {},
+    };
+
+    let firstJson = null;
+    const mockRes1 = {
+      status(code) {
+        return {
+          json(data) {
+            firstJson = data;
+          },
+        };
+      },
+    };
+
+    // First execution -> success
+    await NotificationController.triggerDailyPush(mockReq, mockRes1, (err) => { throw err; });
+    assert.equal(firstJson.success, true);
+    assert.equal(firstJson.skipped, undefined);
+
+    // Second execution on same date -> skipped: true
+    let secondJson = null;
+    const mockRes2 = {
+      status(code) {
+        return {
+          json(data) {
+            secondJson = data;
+          },
+        };
+      },
+    };
+
+    await NotificationController.triggerDailyPush(mockReq, mockRes2, (err) => { throw err; });
+    assert.equal(secondJson.success, true);
+    assert.equal(secondJson.skipped, true);
+    assert.equal(secondJson.data.alreadyCompleted, true);
+  });
+
+  it('15. POST /api/notifications/trigger-daily-push with force=true bypasses duplicate check', async () => {
+    const { NotificationController } = await import('../src/controllers/notificationController.js');
+    NotificationController._resetPushState();
+    config.cronSecret = 'test_super_secure_cron_secret_12345';
+
+    const mockReq = {
+      headers: { 'x-cron-secret': 'test_super_secure_cron_secret_12345' },
+      query: { date: '2026-10-09' },
+      body: {},
+    };
+
+    const mockRes = {
+      status() {
+        return { json() {} };
+      },
+    };
+
+    // First execution
+    await NotificationController.triggerDailyPush(mockReq, mockRes, (err) => { throw err; });
+
+    // Forced execution
+    const forcedReq = {
+      headers: { 'x-cron-secret': 'test_super_secure_cron_secret_12345' },
+      query: { date: '2026-10-09', force: 'true' },
+      body: {},
+    };
+
+    let forcedJson = null;
+    const mockResForced = {
+      status(code) {
+        return {
+          json(data) {
+            forcedJson = data;
+          },
+        };
+      },
+    };
+
+    await NotificationController.triggerDailyPush(forcedReq, mockResForced, (err) => { throw err; });
+    assert.equal(forcedJson.success, true);
+    assert.equal(forcedJson.skipped, undefined);
+  });
+
+  it('16. POST /api/notifications/trigger-daily-push releases lock after failure so subsequent retries can run', async () => {
+    const { NotificationController } = await import('../src/controllers/notificationController.js');
+    NotificationController._resetPushState();
+    config.cronSecret = 'test_super_secure_cron_secret_12345';
+
+    // Mock pushNotificationService to throw error on first call
+    const originalSend = pushNotificationService.sendPushToUser;
+    let failFirst = true;
+
+    pushNotificationService.sendPushToUser = async () => {
+      if (failFirst) {
+        failFirst = false;
+        throw new Error('Push service temporary gateway error');
+      }
+      return { sent: 1, failed: 0, total: 1 };
+    };
+
+    try {
+      const mockReq = {
+        headers: { 'x-cron-secret': 'test_super_secure_cron_secret_12345' },
+        query: { date: '2026-10-09' },
+        body: {},
+      };
+
+      // Even when user error occurs during dispatch, the summary completes and lock is released
+      let res1 = null;
+      await NotificationController.triggerDailyPush(mockReq, {
+        status(code) {
+          return { json(data) { res1 = { code, data }; } };
+        },
+      }, () => {});
+
+      assert.ok(res1);
+      assert.equal(res1.code, 200);
+
+      // Subsequent attempt runs cleanly without being blocked by previous run
+      let res2 = null;
+      await NotificationController.triggerDailyPush({
+        ...mockReq,
+        query: { date: '2026-10-09', force: 'true' },
+      }, {
+        status(code) {
+          return { json(data) { res2 = { code, data }; } };
+        },
+      }, () => {});
+
+      assert.ok(res2);
+      assert.equal(res2.code, 200);
+    } finally {
+      pushNotificationService.sendPushToUser = originalSend;
+      NotificationController._resetPushState();
+    }
+  });
 });
+

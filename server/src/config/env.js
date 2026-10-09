@@ -56,6 +56,7 @@ export const config = {
     privateKey: process.env.VAPID_PRIVATE_KEY || 'isHFMQWZd53GZPv0vB76itBE7k_R28iZx8I21epvKfw',
     subject: process.env.VAPID_SUBJECT || 'mailto:hello@dailygrace.work.gd',
   },
+  cronSecret: process.env.CRON_SECRET || '',
 };
 
 

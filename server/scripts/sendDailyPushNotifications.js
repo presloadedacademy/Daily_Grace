@@ -16,7 +16,8 @@ import { checkDbConnection, closePool } from '../src/config/db.js';
  * - Does NOT mutate daily_reminder_logs (preserving logs for future email workflow).
  * - Safe, idempotent, and exits cleanly.
  */
-export async function processDailyPushNotifications(customDate = null, mockUsersList = null) {
+export async function processDailyPushNotifications(customDate = null, mockUsersList = null, options = {}) {
+  const { shouldClosePool = false } = options;
   const lagosDate = getLagosDateString(customDate);
 
   console.log('================================================================');
@@ -82,7 +83,7 @@ export async function processDailyPushNotifications(customDate = null, mockUsers
 
     return summary;
   } finally {
-    if (!mockUsersList) {
+    if (!mockUsersList && shouldClosePool) {
       await closePool();
     }
   }
@@ -91,7 +92,7 @@ export async function processDailyPushNotifications(customDate = null, mockUsers
 // Allow direct CLI / Cron execution: `node scripts/sendDailyPushNotifications.js`
 const isDirectExecution = process.argv[1] && process.argv[1].endsWith('sendDailyPushNotifications.js');
 if (isDirectExecution) {
-  processDailyPushNotifications()
+  processDailyPushNotifications(null, null, { shouldClosePool: true })
     .then(() => process.exit(0))
     .catch((err) => {
       console.error('[Fatal Push Dispatcher Error]:', err);
