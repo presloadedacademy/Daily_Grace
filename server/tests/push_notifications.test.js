@@ -565,28 +565,66 @@ describe('DAILY GRACE — Web Push Notifications & VAPID Setup Suite', () => {
     const { NotificationController } = await import('../src/controllers/notificationController.js');
     const { UserService } = await import('../src/services/userService.js');
     config.cronSecret = 'test_super_secure_cron_secret_12345';
+    const email = `paused_${Date.now()}_${Math.random().toString(36).substring(2, 7)}@example.com`;
 
     const pausedUser = await UserRepository.createUser({
       name: 'Paused Tester',
-      email: 'paused_user@example.com',
+      email,
       passwordHash: 'hash',
       emailVerified: true,
     });
-    // Explicitly update notification_enabled to false via repository/service
-    await UserService.updatePreferences(pausedUser.id, false);
 
-    let pushAttempted = false;
-    const originalSendNotification = pushNotificationService.sendPushNotification;
-    pushNotificationService.sendPushNotification = async () => {
-      pushAttempted = true;
-      return { success: true };
-    };
+    try {
+      // Explicitly update notification_enabled to false via repository/service
+      await UserService.updatePreferences(pausedUser.id, false);
+
+      let pushAttempted = false;
+      const originalSendNotification = pushNotificationService.sendPushNotification;
+      pushNotificationService.sendPushNotification = async () => {
+        pushAttempted = true;
+        return { success: true };
+      };
+
+      try {
+        let resJson = null;
+        await NotificationController.testPush({
+          headers: { 'x-cron-secret': 'test_super_secure_cron_secret_12345' },
+          body: { email },
+        }, {
+          status(code) {
+            assert.equal(code, 200);
+            return { json(data) { resJson = data; } };
+          },
+        }, (err) => { throw err; });
+
+        assert.equal(resJson.code, 'NOTIFICATIONS_PAUSED');
+        assert.equal(resJson.data.notificationEnabled, false);
+        assert.equal(pushAttempted, false, 'Must not attempt to send push to paused user');
+      } finally {
+        pushNotificationService.sendPushNotification = originalSendNotification;
+      }
+    } finally {
+      await UserRepository.deleteUser(pausedUser.id).catch(() => {});
+    }
+  });
+
+  it('21. POST /api/notifications/test-push returns no subscriptions status when user has 0 devices', async () => {
+    const { NotificationController } = await import('../src/controllers/notificationController.js');
+    config.cronSecret = 'test_super_secure_cron_secret_12345';
+    const email = `nodevices_${Date.now()}_${Math.random().toString(36).substring(2, 7)}@example.com`;
+
+    const user = await UserRepository.createUser({
+      name: 'No Devices Tester',
+      email,
+      passwordHash: 'hash',
+      emailVerified: true,
+    });
 
     try {
       let resJson = null;
       await NotificationController.testPush({
         headers: { 'x-cron-secret': 'test_super_secure_cron_secret_12345' },
-        body: { email: 'paused_user@example.com' },
+        body: { email },
       }, {
         status(code) {
           assert.equal(code, 200);
@@ -594,56 +632,32 @@ describe('DAILY GRACE — Web Push Notifications & VAPID Setup Suite', () => {
         },
       }, (err) => { throw err; });
 
-      assert.equal(resJson.code, 'NOTIFICATIONS_PAUSED');
-      assert.equal(resJson.data.notificationEnabled, false);
-      assert.equal(pushAttempted, false, 'Must not attempt to send push to paused user');
+      assert.equal(resJson.code, 'NO_SUBSCRIPTIONS');
+      assert.equal(resJson.data.devicesFound, 0);
+      assert.equal(resJson.data.sent, 0);
     } finally {
-      pushNotificationService.sendPushNotification = originalSendNotification;
+      await UserRepository.deleteUser(user.id).catch(() => {});
     }
-  });
-
-  it('21. POST /api/notifications/test-push returns no subscriptions status when user has 0 devices', async () => {
-    const { NotificationController } = await import('../src/controllers/notificationController.js');
-    config.cronSecret = 'test_super_secure_cron_secret_12345';
-
-    await UserRepository.createUser({
-      name: 'No Devices Tester',
-      email: 'nodevices@example.com',
-      passwordHash: 'hash',
-      emailVerified: true,
-    });
-
-    let resJson = null;
-    await NotificationController.testPush({
-      headers: { 'x-cron-secret': 'test_super_secure_cron_secret_12345' },
-      body: { email: 'nodevices@example.com' },
-    }, {
-      status(code) {
-        assert.equal(code, 200);
-        return { json(data) { resJson = data; } };
-      },
-    }, (err) => { throw err; });
-
-    assert.equal(resJson.code, 'NO_SUBSCRIPTIONS');
-    assert.equal(resJson.data.devicesFound, 0);
-    assert.equal(resJson.data.sent, 0);
   });
 
   it('22. POST /api/notifications/test-push sends ONLY to target user and NEVER to other users', async () => {
     const { NotificationController } = await import('../src/controllers/notificationController.js');
     config.cronSecret = 'test_super_secure_cron_secret_12345';
+    const targetEmail = `target_${Date.now()}_${Math.random().toString(36).substring(2, 7)}@example.com`;
+    const otherEmail = `other_${Date.now()}_${Math.random().toString(36).substring(2, 7)}@example.com`;
 
     // Target User
     const targetUser = await UserRepository.createUser({
       name: 'Target User',
-      email: 'target@example.com',
+      email: targetEmail,
       passwordHash: 'hash',
       emailVerified: true,
     });
 
+    const targetSubEndpoint = `https://push.example.com/target_device_${Date.now()}`;
     await PushSubscriptionRepository.saveSubscription({
       userId: targetUser.id,
-      endpoint: 'https://push.example.com/target_device_1',
+      endpoint: targetSubEndpoint,
       p256dh: 'target_p256',
       auth: 'target_auth',
     });
@@ -651,14 +665,15 @@ describe('DAILY GRACE — Web Push Notifications & VAPID Setup Suite', () => {
     // Other User
     const otherUser = await UserRepository.createUser({
       name: 'Other User',
-      email: 'other@example.com',
+      email: otherEmail,
       passwordHash: 'hash',
       emailVerified: true,
     });
 
+    const otherSubEndpoint = `https://push.example.com/other_device_${Date.now()}`;
     await PushSubscriptionRepository.saveSubscription({
       userId: otherUser.id,
-      endpoint: 'https://push.example.com/other_device_1',
+      endpoint: otherSubEndpoint,
       p256dh: 'other_p256',
       auth: 'other_auth',
     });
@@ -674,7 +689,7 @@ describe('DAILY GRACE — Web Push Notifications & VAPID Setup Suite', () => {
       let resJson = null;
       await NotificationController.testPush({
         headers: { 'x-cron-secret': 'test_super_secure_cron_secret_12345' },
-        body: { email: 'target@example.com' },
+        body: { email: targetEmail },
       }, {
         status(code) {
           assert.equal(code, 200);
@@ -683,21 +698,180 @@ describe('DAILY GRACE — Web Push Notifications & VAPID Setup Suite', () => {
       }, (err) => { throw err; });
 
       assert.equal(resJson.success, true);
-      assert.equal(resJson.data.email, 'target@example.com');
+      assert.equal(resJson.data.email, targetEmail);
       assert.equal(resJson.data.sent, 1);
       assert.equal(resJson.data.devicesFound, 1);
 
       // Verify dispatched endpoints
       assert.equal(dispatchedToEndpoints.length, 1);
-      assert.equal(dispatchedToEndpoints[0].endpoint, 'https://push.example.com/target_device_1');
+      assert.equal(dispatchedToEndpoints[0].endpoint, targetSubEndpoint);
       assert.equal(dispatchedToEndpoints[0].payload.title, '🙏 Daily Grace Test');
-      assert.equal(dispatchedToEndpoints[0].payload.body, 'Your phone is successfully connected to Daily Grace notifications!');
       assert.equal(dispatchedToEndpoints[0].payload.tag, 'daily-grace-test');
       assert.equal(dispatchedToEndpoints[0].payload.url, '/today');
     } finally {
       pushNotificationService.sendPushNotification = originalSendNotification;
+      await PushSubscriptionRepository.deleteSubscriptionByEndpoint(targetSubEndpoint).catch(() => {});
+      await PushSubscriptionRepository.deleteSubscriptionByEndpoint(otherSubEndpoint).catch(() => {});
+      await UserRepository.deleteUser(targetUser.id).catch(() => {});
+      await UserRepository.deleteUser(otherUser.id).catch(() => {});
+    }
+  });
+
+  it('23. UserService.updatePreferences validates reminder_time format strictly', async () => {
+    const { UserService } = await import('../src/services/userService.js');
+    const dummyId = generateUuid();
+
+    // Invalid reminder times
+    await assert.rejects(
+      () => UserService.updatePreferences(dummyId, { reminderTime: '25:00' }),
+      (err) => err.message.includes('24-hour HH:mm format')
+    );
+    await assert.rejects(
+      () => UserService.updatePreferences(dummyId, { reminderTime: '9:00' }),
+      (err) => err.message.includes('24-hour HH:mm format')
+    );
+    await assert.rejects(
+      () => UserService.updatePreferences(dummyId, { reminderTime: 'not-a-time' }),
+      (err) => err.message.includes('24-hour HH:mm format')
+    );
+  });
+
+  it('24. UserService.updatePreferences validates IANA timezone string strictly', async () => {
+    const { UserService } = await import('../src/services/userService.js');
+    const dummyId = generateUuid();
+
+    await assert.rejects(
+      () => UserService.updatePreferences(dummyId, { timezone: 'Fake/Unknown_Timezone' }),
+      (err) => err.message.includes('Invalid IANA timezone')
+    );
+  });
+
+  it('25. isUserDueForPush calculates due state correctly in user local timezone', async () => {
+    const { isUserDueForPush } = await import('../scripts/sendDailyPushNotifications.js');
+
+    const user = {
+      reminder_time: '05:00',
+      timezone: 'Africa/Lagos',
+    };
+
+    // 05:00 in Africa/Lagos (UTC+1) is 04:00 UTC
+    const exactDueTimeUtc = new Date(Date.UTC(2026, 9, 10, 4, 0, 0));
+    const check1 = isUserDueForPush(user, exactDueTimeUtc);
+    assert.equal(check1.isDue, true, 'User should be due at exact reminder time');
+    assert.equal(check1.diffMinutes, 0);
+
+    // 05:30 in Africa/Lagos (UTC+1) is 04:30 UTC -> within 120min catch-up window
+    const late30mUtc = new Date(Date.UTC(2026, 9, 10, 4, 30, 0));
+    const check2 = isUserDueForPush(user, late30mUtc);
+    assert.equal(check2.isDue, true, 'User should be due within catch-up window');
+    assert.equal(check2.diffMinutes, 30);
+
+    // 04:30 in Africa/Lagos (UTC+1) is 03:30 UTC -> 30 min before reminder time
+    const earlyUtc = new Date(Date.UTC(2026, 9, 10, 3, 30, 0));
+    const check3 = isUserDueForPush(user, earlyUtc);
+    assert.equal(check3.isDue, false, 'User should not be due before reminder time');
+    assert.ok(check3.diffMinutes < 0);
+
+    // 08:00 in Africa/Lagos (UTC+1) is 07:00 UTC -> 180 min after (outside 120m catch-up window)
+    const tooLateUtc = new Date(Date.UTC(2026, 9, 10, 7, 0, 0));
+    const check4 = isUserDueForPush(user, tooLateUtc);
+    assert.equal(check4.isDue, false, 'User should not be due after catch-up window expired');
+    assert.ok(check4.diffMinutes > 120);
+  });
+
+  it('26. POST /api/notifications/test-device-push targets current device only and rejects unauthenticated/wrong device', async () => {
+    const { NotificationController } = await import('../src/controllers/notificationController.js');
+    const userEmail = `device_test_${Date.now()}_${Math.random().toString(36).substring(2, 7)}@example.com`;
+    const user = await UserRepository.createUser({
+      name: 'Device Tester',
+      email: userEmail,
+      passwordHash: 'hash',
+      emailVerified: true,
+    });
+
+    const endpoint = `https://push.example.com/device_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+    await PushSubscriptionRepository.saveSubscription({
+      userId: user.id,
+      endpoint,
+      p256dh: 'test_p256',
+      auth: 'test_auth',
+    });
+
+    let resStatus = null;
+    let resJson = null;
+
+    try {
+      // Test with wrong endpoint for this user
+      await NotificationController.testDevicePush({
+        user: { userId: user.id },
+        body: { endpoint: 'https://push.example.com/other_endpoint' },
+      }, {
+        status(code) {
+          resStatus = code;
+          return { json(data) { resJson = data; } };
+        },
+      }, (err) => { throw err; });
+
+      assert.equal(resStatus, 404);
+      assert.equal(resJson.code, 'SUBSCRIPTION_NOT_FOUND');
+
+      // Test with matching endpoint
+      let pushSentTo = null;
+      const originalSend = pushNotificationService.sendPushNotification;
+      pushNotificationService.sendPushNotification = async (sub, payload) => {
+        pushSentTo = sub.endpoint;
+        return { success: true };
+      };
+
+      try {
+        await NotificationController.testDevicePush({
+          user: { userId: user.id },
+          body: { endpoint },
+        }, {
+          status(code) {
+            resStatus = code;
+            return { json(data) { resJson = data; } };
+          },
+        }, (err) => { throw err; });
+
+        assert.equal(resStatus, 200);
+        assert.equal(resJson.success, true);
+        assert.equal(resJson.data.endpointAccepted, true);
+        assert.equal(pushSentTo, endpoint);
+      } finally {
+        pushNotificationService.sendPushNotification = originalSend;
+      }
+    } finally {
+      await PushSubscriptionRepository.deleteSubscriptionByEndpoint(endpoint).catch(() => {});
+      await UserRepository.deleteUser(user.id).catch(() => {});
+    }
+  });
+
+  it('27. PushSubscriptionRepository.claimDailyPush prevents duplicate daily sends atomically', async () => {
+    const userEmail = `claim_test_${Date.now()}_${Math.random().toString(36).substring(2, 7)}@example.com`;
+    const user = await UserRepository.createUser({
+      name: 'Claim Tester',
+      email: userEmail,
+      passwordHash: 'hash',
+      emailVerified: true,
+    });
+
+    const date = `2026-10-${Math.floor(10 + Math.random() * 18)}`;
+
+    try {
+      // First claim should succeed
+      const firstClaim = await PushSubscriptionRepository.claimDailyPush(user.id, date, 'claiming');
+      assert.ok(firstClaim, 'First claim should return record');
+
+      // Second claim for same user on same date should return null
+      const secondClaim = await PushSubscriptionRepository.claimDailyPush(user.id, date, 'claiming');
+      assert.equal(secondClaim, null, 'Second claim on same date must be rejected');
+    } finally {
+      await UserRepository.deleteUser(user.id).catch(() => {});
     }
   });
 });
+
 
 

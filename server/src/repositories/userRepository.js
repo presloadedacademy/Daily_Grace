@@ -39,6 +39,8 @@ export class UserRepository {
         email_verified: isVerified,
         is_verified: isVerified,
         notification_enabled: true,
+        reminder_time: '05:00',
+        timezone: 'Africa/Lagos',
         onboarding_completed: false,
         current_streak: 0,
         longest_streak: 0,
@@ -66,14 +68,16 @@ export class UserRepository {
     email_verified,
     is_verified,
     notification_enabled,
+    reminder_time,
+    timezone,
     onboarding_completed,
     current_streak,
     longest_streak,
     verification_token_hash,
     verification_token_expires_at
   )
-  VALUES ($1, $2, LOWER($3), $4, $5, $6, $6, TRUE, FALSE, 0, 0, $7, $8)
-  RETURNING id, name, email, role, email_verified, is_verified, notification_enabled, onboarding_completed, current_streak, longest_streak, last_completed_date, created_at, updated_at;
+  VALUES ($1, $2, LOWER($3), $4, $5, $6, $6, TRUE, '05:00', 'Africa/Lagos', FALSE, 0, 0, $7, $8)
+  RETURNING id, name, email, role, email_verified, is_verified, notification_enabled, reminder_time, timezone, onboarding_completed, current_streak, longest_streak, last_completed_date, created_at, updated_at;
 `;
 
     const values = [
@@ -117,6 +121,8 @@ export class UserRepository {
         email_verified,
         is_verified,
         notification_enabled,
+        reminder_time,
+        timezone,
         onboarding_completed,
         current_streak,
         longest_streak,
@@ -154,6 +160,8 @@ export class UserRepository {
         email_verified,
         is_verified,
         notification_enabled,
+        reminder_time,
+        timezone,
         onboarding_completed,
         current_streak,
         longest_streak,
@@ -396,15 +404,17 @@ export class UserRepository {
   }
 
   /**
-   * Update user notification preference.
+   * Update user notification preferences (enabled, reminder_time, timezone).
    */
-  static async updatePreferences(userId, { notificationEnabled }) {
+  static async updatePreferences(userId, { notificationEnabled, reminderTime, timezone }) {
     if (!userId || !isValidUuid(userId)) return null;
 
     if (!isDatabaseAvailable()) {
       const u = devMemoryStore.get(userId);
       if (u) {
-        u.notification_enabled = Boolean(notificationEnabled);
+        if (notificationEnabled !== undefined) u.notification_enabled = Boolean(notificationEnabled);
+        if (reminderTime !== undefined) u.reminder_time = reminderTime;
+        if (timezone !== undefined) u.timezone = timezone;
         u.updated_at = new Date();
         return { ...u };
       }
@@ -414,12 +424,19 @@ export class UserRepository {
     const text = `
       UPDATE users
       SET
-        notification_enabled = $1,
+        notification_enabled = COALESCE($1, notification_enabled),
+        reminder_time = COALESCE($2, reminder_time),
+        timezone = COALESCE($3, timezone),
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $2
-      RETURNING id, name, email, role, email_verified, notification_enabled, onboarding_completed, updated_at;
+      WHERE id = $4
+      RETURNING id, name, email, role, email_verified, notification_enabled, reminder_time, timezone, onboarding_completed, updated_at;
     `;
-    const res = await query(text, [Boolean(notificationEnabled), userId]);
+    const res = await query(text, [
+      notificationEnabled !== undefined ? Boolean(notificationEnabled) : null,
+      reminderTime !== undefined ? reminderTime : null,
+      timezone !== undefined ? timezone : null,
+      userId,
+    ]);
     return res.rows[0] || null;
   }
 

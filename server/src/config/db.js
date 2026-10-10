@@ -16,7 +16,7 @@ export function getPool() {
       ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : false,
       max: 20,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 4000,
+      connectionTimeoutMillis: 10000,
     });
 
     pool.on('error', (err) => {
@@ -48,11 +48,28 @@ export async function checkDbConnection() {
     isDbOnline = true;
     console.log(`[DB] Connected to PostgreSQL successfully at ${res.rows[0].current_time}`);
 
-    // Auto-migrate any missing OTP/verification columns
+    // Auto-migrate any missing columns and idempotency tables
     await query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_otp VARCHAR(6);
       ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_otp_expires_at TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS reminder_time VARCHAR(5) NOT NULL DEFAULT '05:00';
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS timezone VARCHAR(50) NOT NULL DEFAULT 'Africa/Lagos';
+      CREATE INDEX IF NOT EXISTS idx_users_reminder_time ON users(reminder_time);
+
+      CREATE TABLE IF NOT EXISTS daily_push_logs (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          push_date DATE NOT NULL,
+          sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+          status VARCHAR(50) NOT NULL DEFAULT 'sent',
+          devices_targeted INTEGER NOT NULL DEFAULT 0,
+          devices_sent INTEGER NOT NULL DEFAULT 0,
+          devices_failed INTEGER NOT NULL DEFAULT 0,
+          CONSTRAINT uq_user_push_date UNIQUE (user_id, push_date)
+      );
+      CREATE INDEX IF NOT EXISTS idx_daily_push_logs_date ON daily_push_logs(push_date);
+      CREATE INDEX IF NOT EXISTS idx_daily_push_logs_user_date ON daily_push_logs(user_id, push_date);
     `).catch((err) => {
       console.warn('[DB Migration Warning]', err.message);
     });

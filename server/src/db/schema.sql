@@ -32,10 +32,12 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS last_completed_date DATE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_otp VARCHAR(6);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_otp_expires_at TIMESTAMP WITH TIME ZONE;
-
+ALTER TABLE users ADD COLUMN IF NOT EXISTS reminder_time VARCHAR(5) NOT NULL DEFAULT '05:00';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS timezone VARCHAR(50) NOT NULL DEFAULT 'Africa/Lagos';
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(LOWER(email));
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_users_reminder_time ON users(reminder_time);
 CREATE INDEX IF NOT EXISTS idx_users_verification_token ON users(verification_token_hash);
 CREATE INDEX IF NOT EXISTS idx_users_verification_otp ON users(verification_otp);
 
@@ -111,4 +113,20 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 
 CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
 CREATE INDEX IF NOT EXISTS idx_push_subscriptions_endpoint ON push_subscriptions(endpoint);
+
+-- 6. Web Push Logs Table (Database-Backed Idempotency & Delivery Tracking)
+CREATE TABLE IF NOT EXISTS daily_push_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    push_date DATE NOT NULL,
+    sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'sent',
+    devices_targeted INTEGER NOT NULL DEFAULT 0,
+    devices_sent INTEGER NOT NULL DEFAULT 0,
+    devices_failed INTEGER NOT NULL DEFAULT 0,
+    CONSTRAINT uq_user_push_date UNIQUE (user_id, push_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_daily_push_logs_date ON daily_push_logs(push_date);
+CREATE INDEX IF NOT EXISTS idx_daily_push_logs_user_date ON daily_push_logs(user_id, push_date);
 

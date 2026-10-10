@@ -1,4 +1,16 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+const resolveApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl && typeof envUrl === 'string' && !envUrl.includes('dailygrace.work.gd')) {
+    return envUrl.replace(/\/+$/, '');
+  }
+  // Production fallback on non-localhost domains (e.g. Vercel)
+  if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+    return 'https://daily-grace.onrender.com';
+  }
+  return '';
+};
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 class ApiClient {
   async request(endpoint, options = {}) {
@@ -25,7 +37,17 @@ class ApiClient {
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+      const fullUrl = `${API_BASE_URL}${endpoint}`;
+      const response = await fetch(fullUrl, config);
+      const contentType = response.headers.get('content-type') || '';
+
+      if (contentType.includes('text/html') && endpoint.startsWith('/api/')) {
+        const error = new Error(`API endpoint ${endpoint} unexpectedly returned HTML instead of JSON. The backend service may be starting up or the route is misconfigured.`);
+        error.code = 'UNEXPECTED_HTML_RESPONSE';
+        error.status = response.status;
+        throw error;
+      }
+
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
@@ -38,10 +60,10 @@ class ApiClient {
 
       return data;
     } catch (err) {
-      if (err.status) {
+      if (err.status || err.code === 'UNEXPECTED_HTML_RESPONSE') {
         throw err;
       }
-      const networkError = new Error('Unable to connect to Daily Grace server. Please check your network connection.');
+      const networkError = new Error(`Unable to connect to Daily Grace server at ${API_BASE_URL || 'current host'}. Please check your network connection.`);
       networkError.code = 'NETWORK_ERROR';
       throw networkError;
     }

@@ -23,12 +23,17 @@ class UserService {
   }
 
   /**
-   * Update notification preference.
+   * Update notification preferences (enabled, reminder time, timezone).
    */
-  async updatePreferences({ notificationEnabled }) {
+  async updatePreferences({ notificationEnabled, reminderTime, timezone }) {
+    const payload = {};
+    if (notificationEnabled !== undefined) payload.notificationEnabled = notificationEnabled;
+    if (reminderTime !== undefined) payload.reminderTime = reminderTime;
+    if (timezone !== undefined) payload.timezone = timezone;
+
     const response = await api.request('/api/users/preferences', {
       method: 'PATCH',
-      body: JSON.stringify({ notificationEnabled }),
+      body: JSON.stringify(payload),
     });
     return response.preferences;
   }

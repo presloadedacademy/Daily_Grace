@@ -27,14 +27,6 @@ function AppRouter() {
   const { user, isLoading } = useAuth();
   const [foregroundToast, setForegroundToast] = useState(null);
 
-  useEffect(() => {
-    if (user) {
-      PushNotificationClient.registerAndSubscribe().catch((err) => {
-        console.warn('[Push] Auto-subscribe notification notice:', err);
-      });
-    }
-  }, [user]);
-
   // Listen for real-time push notification broadcasts from Service Worker while app is open
   useEffect(() => {
     if ('serviceWorker' in navigator) {

@@ -24,6 +24,8 @@ export class UserService {
       role: user.role || 'user',
       email_verified: user.email_verified,
       notification_enabled: user.notification_enabled,
+      reminder_time: user.reminder_time || '05:00',
+      timezone: user.timezone || 'Africa/Lagos',
       onboarding_completed: Boolean(user.onboarding_completed),
       created_at: user.created_at,
     };
@@ -58,6 +60,8 @@ export class UserService {
       role: updatedUser.role || 'user',
       email_verified: updatedUser.email_verified,
       notification_enabled: updatedUser.notification_enabled,
+      reminder_time: updatedUser.reminder_time || '05:00',
+      timezone: updatedUser.timezone || 'Africa/Lagos',
       onboarding_completed: Boolean(updatedUser.onboarding_completed),
       updated_at: updatedUser.updated_at,
     };
@@ -65,23 +69,59 @@ export class UserService {
 
   /**
    * Update notification preferences for the authenticated user.
+   * Supports object { notificationEnabled, reminderTime, timezone } or legacy boolean notificationEnabled.
    */
-  static async updatePreferences(userId, notificationEnabled) {
+  static async updatePreferences(userId, prefs) {
     if (!userId || !isValidUuid(userId)) {
       throw new AppError('Invalid authentication session. Please log in again.', 401, 'UNAUTHORIZED');
     }
 
-    if (typeof notificationEnabled !== 'boolean') {
+    let notificationEnabled;
+    let reminderTime;
+    let timezone;
+
+    if (typeof prefs === 'boolean') {
+      notificationEnabled = prefs;
+    } else if (prefs && typeof prefs === 'object') {
+      notificationEnabled = prefs.notificationEnabled !== undefined ? prefs.notificationEnabled : prefs.notification_enabled;
+      reminderTime = prefs.reminderTime !== undefined ? prefs.reminderTime : prefs.reminder_time;
+      timezone = prefs.timezone;
+    } else {
+      throw new AppError('Preferences must be an object or boolean value.', 400, 'VALIDATION_ERROR');
+    }
+
+    if (notificationEnabled !== undefined && typeof notificationEnabled !== 'boolean') {
       throw new AppError('Notification enabled must be a boolean value (true or false).', 400, 'VALIDATION_ERROR');
     }
 
-    const updatedUser = await UserRepository.updatePreferences(userId, { notificationEnabled });
+    if (reminderTime !== undefined) {
+      if (typeof reminderTime !== 'string' || !/^([01]\d|2[0-3]):([0-5]\d)$/.test(reminderTime.trim())) {
+        throw new AppError('Reminder time must be in 24-hour HH:mm format (e.g. 05:00 or 18:30).', 400, 'VALIDATION_ERROR');
+      }
+      reminderTime = reminderTime.trim();
+    }
+
+    if (timezone !== undefined) {
+      if (typeof timezone !== 'string' || !timezone.trim()) {
+        throw new AppError('Timezone must be a valid IANA timezone string (e.g. Africa/Lagos).', 400, 'VALIDATION_ERROR');
+      }
+      try {
+        Intl.DateTimeFormat(undefined, { timeZone: timezone.trim() });
+        timezone = timezone.trim();
+      } catch {
+        throw new AppError(`Invalid IANA timezone: ${timezone}.`, 400, 'VALIDATION_ERROR');
+      }
+    }
+
+    const updatedUser = await UserRepository.updatePreferences(userId, { notificationEnabled, reminderTime, timezone });
     if (!updatedUser) {
       throw new AppError('User account not found.', 404, 'NOT_FOUND');
     }
 
     return {
       notification_enabled: updatedUser.notification_enabled,
+      reminder_time: updatedUser.reminder_time || '05:00',
+      timezone: updatedUser.timezone || 'Africa/Lagos',
       onboarding_completed: Boolean(updatedUser.onboarding_completed),
     };
   }

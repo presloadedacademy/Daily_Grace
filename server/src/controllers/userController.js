@@ -38,8 +38,12 @@ export class UserController {
    */
   static async updatePreferences(req, res, next) {
     try {
-      const { notificationEnabled } = req.body;
-      const result = await UserService.updatePreferences(req.user.userId, notificationEnabled);
+      const { notificationEnabled, reminderTime, timezone } = req.body;
+      const result = await UserService.updatePreferences(req.user.userId, {
+        notificationEnabled,
+        reminderTime,
+        timezone,
+      });
       res.status(200).json({
         success: true,
         message: 'Notification preference updated successfully.',

@@ -113,7 +113,7 @@ export class NotificationController {
       // 4. Execute dedicated push notification workflow (push only, pool kept open)
       isPushDispatching = true;
       try {
-        const summary = await processDailyPushNotifications(targetDate, null, { shouldClosePool: false });
+        const summary = await processDailyPushNotifications(targetDate, null, { shouldClosePool: false, force: isForced });
         lastSuccessfulPushDate = targetDate;
 
         return res.status(200).json({
@@ -258,6 +258,80 @@ export class NotificationController {
       });
     } catch (error) {
       console.error('[NotificationController Error] testPush failed:', error);
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/notifications/test-device-push
+   * Authenticated test notification strictly for the caller's current browser/device.
+   */
+  static async testDevicePush(req, res, next) {
+    try {
+      const userId = req.user?.userId || req.user?.id;
+      const endpoint = req.body?.endpoint;
+
+      if (!endpoint || typeof endpoint !== 'string' || !endpoint.trim()) {
+        return res.status(400).json({
+          success: false,
+          code: 'INVALID_ENDPOINT',
+          message: 'A valid subscription endpoint is required to test this device.',
+        });
+      }
+
+      // Query database for this exact user and endpoint
+      const subscription = await PushSubscriptionRepository.findSubscriptionByUserIdAndEndpoint(userId, endpoint.trim());
+      if (!subscription) {
+        return res.status(404).json({
+          success: false,
+          code: 'SUBSCRIPTION_NOT_FOUND',
+          message: 'No push subscription matching this device was found for your account. Please click "Enable notifications on this device" first.',
+        });
+      }
+
+      const testPayload = {
+        title: '🙏 Daily Grace Test',
+        body: 'Your device is successfully connected to Daily Grace notifications!',
+        url: '/today',
+        tag: 'daily-grace-device-test',
+        icon: '/icon-192x192.png',
+        badge: '/badge-72x72.png',
+        timestamp: Date.now(),
+      };
+
+      const result = await pushNotificationService.sendPushNotification(subscription, testPayload);
+
+      if (result.success) {
+        return res.status(200).json({
+          success: true,
+          code: 'PUSH_ACCEPTED',
+          message: 'Test notification was accepted by the push service (e.g. Google FCM). Check your device notification tray.',
+          data: {
+            endpointAccepted: true,
+            displayedOnScreen: null, // Note: Push service acceptance is not proof of physical screen rendering
+          },
+        });
+      } else if (result.isExpired) {
+        return res.status(410).json({
+          success: false,
+          code: 'SUBSCRIPTION_EXPIRED',
+          message: 'The push service reported this device subscription as expired or revoked (HTTP 410). It has been pruned. Please tap "Enable notifications on this device" to register a new subscription.',
+          data: {
+            statusCode: result.statusCode,
+          },
+        });
+      } else {
+        return res.status(502).json({
+          success: false,
+          code: 'PUSH_GATEWAY_ERROR',
+          message: `The browser push service rejected the notification: ${result.error || 'Unknown error'}`,
+          data: {
+            statusCode: result.statusCode || null,
+          },
+        });
+      }
+    } catch (error) {
+      console.error('[NotificationController Error] testDevicePush failed:', error);
       next(error);
     }
   }

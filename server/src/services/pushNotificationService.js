@@ -66,19 +66,28 @@ class PushNotificationService {
     };
 
     const payloadString = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    const endpointSummary = subscription.endpoint ? `${subscription.endpoint.slice(0, 25)}...[REDACTED]` : '[NO_ENDPOINT]';
 
     try {
       await webpush.sendNotification(pushSubscription, payloadString);
       return { success: true, endpoint: subscription.endpoint };
     } catch (error) {
+      const statusCode = error.statusCode;
+      const isExpired = statusCode === 404 || statusCode === 410;
       // 404 or 410 indicates the subscription has expired or been revoked
-      if (error.statusCode === 404 || error.statusCode === 410) {
-        console.log(`[PushNotificationService] Removing expired push subscription: ${subscription.endpoint}`);
+      if (isExpired) {
+        console.log(`[PushNotificationService] Removing expired push subscription (${statusCode}): ${endpointSummary}`);
         await PushSubscriptionRepository.deleteSubscriptionByEndpoint(subscription.endpoint);
       } else {
-        console.error(`[PushNotificationService] Error sending push to ${subscription.endpoint}:`, error.message);
+        console.error(`[PushNotificationService] Push delivery failed for ${endpointSummary}: [Status ${statusCode || 'unknown'}]`, error.message);
       }
-      return { success: false, endpoint: subscription.endpoint, error: error.message };
+      return { 
+        success: false, 
+        endpoint: subscription.endpoint, 
+        statusCode,
+        isExpired,
+        error: error.message 
+      };
     }
   }
 
